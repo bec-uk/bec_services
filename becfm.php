@@ -1,0 +1,272 @@
+#!/usr/bin/php
+<?php
+
+/**
+ * Bristol Energy Cooperative Fault Monitoring PHP script
+ *
+ * In its default operating mode, this script will:
+ *  - TODO: Pull in any new meteorological readings from the Create Centre roof from the
+ *    associated gmail account
+ *  - TODO: Update the list of BEC arrays from the master list on the Simtricity platform
+ *  - TODO: Pull in any new generation data from the Simtricity platform
+ *  - TODO: Compare solar radiation and generation data and record where generation is not
+ *    as high as we might expect given historical generation
+ *  - TODO: Create an HTML report
+ *  - TODO: Email report details to BEC maintenance team so they can review whether action
+ *    is required (e.g. cleaning)
+ *
+ * It uses a BEC database to store meteorological data from the Create Centre
+ * roof and generation data from each of the BEC arrays.
+ **/
+
+// Only allow execution from a command line launch
+if (php_sapi_name() != 'cli') {
+	print("Error: This application must be run from a command line\n");
+	exit(1);
+}
+
+/******************************************************************************
+ * Defines and globals
+ *****************************************************************************/
+
+define('DEBUG', TRUE);
+if (DEBUG) {
+	print("Executing in debug mode\n");
+}
+
+// Simtricity API stuff
+define('SIMTRICITY_BASE_URI', 'https://trial.simtricity.com');
+define('SIMTRICITY_TOKEN_FILE', 'simtricity_token.txt');
+
+
+// Stuff to the Google Gmail API
+require __DIR__ . '/vendor/autoload.php';
+define('APPLICATION_NAME', 'BEC Fault Monitoring');
+define('CREDENTIALS_PATH', '~/.credentials/bec_fault_mon.json');
+define('CLIENT_SECRET_PATH', __DIR__ . '/client_secret.json');
+define('SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
+									Google_Service_Gmail::GMAIL_MODIFY,
+									//Google_Service_Gmail::GMAIL_READONLY,
+									Google_Service_Gmail::GMAIL_COMPOSE)));
+
+define('BEC_GMAIL_USER', 'me');
+define('TEMP_DIR', '/tmp');
+
+// The name of the BEC database on the database server
+define('BEC_DATABASE_NAME', 'bec');
+define('BEC_DB_CREATE_CENTRE_RAW_TABLE', 'create_centre_meteo_raw');
+// The email address Create Centre emails come from
+define('CREATE_CENTRE_EMAIL_ADDR', 'info@bristol.airqualitydata.com');
+define('CAN_USE_LOAD_DATA_INFILE', FALSE);
+
+// Array to map Create Centre substance strings to database field names
+$CREATE_CENTRE_SUBSTANCES = array('Relative Humidity' => 'rel_humidity',
+									'Air Temperature' => 'air_temp',
+									'Rainfall' => 'rain',
+									'Solar Radiation' => 'sol_rad');
+
+// Verbose output?
+$verbose = FALSE;
+
+require 'becdb.php';
+require 'becgmail.php';
+require 'becsimtricity.php';
+
+/*****************************************************************************/
+
+/**
+ * Expands the home directory alias '~' to the full path.
+ * @param string $path the path to expand.
+ * @return string the expanded path.
+ */
+function expandHomeDirectory($path) {
+	$homeDirectory = getenv('HOME');
+	if (empty($homeDirectory)) {
+		$homeDirectory = getenv("HOMEDRIVE") . getenv("HOMEPATH");
+	}
+	return str_replace('~', realpath($homeDirectory), $path);
+}
+
+
+// Command line options:
+$helpString = "Usage: php $argv[0] <options>\n" .
+			'where <options> are:' . "\n" .
+			'  -h | --help	Display this usage message' . "\n" .
+			'  -l		List arrays already in BEC database and exit' . "\n" .
+			'  -u		Update array list from Simtricity and exit' . "\n" .
+			'  -v		Verbose output' . "\n" .
+			'  --array <array>		Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
+			'  --delete-create-centre-raw-table' . "\n" .
+			"\t\t\t\t" . 'Delete the Create Centre meteo raw data table and delete the IMPORTED label from the gmail account so everything will be re-imported' . "\n" .
+			'  --html-report-dir <path>' . "\n" .
+			"\t\t\t\t" . 'Location to write the HTML report (default is /var/www/bec-gen-report)' . "\n" .
+			'  --no-html-report	Supress creation of HTML report (default is to create an HTML report a web browser can read)' . "\n" .
+			'  --run-read-only		Run on existing data and report only to screen; do not alter database or Gmail account (send emails) and don\'t create HTML report' . "\n" .
+			'  --temp-dir <path>	Override path to the temporary directory (default is /tmp)' . "\n";
+
+
+/****************************************************************************
+ * Main (start of code)
+ ****************************************************************************/
+
+// Throw away name of script from $argv
+unset($argv[0]);
+
+$deleteCCRMode = FALSE;
+
+if ($argc > 1) {
+	// There were some options/arguments.  Process them...
+
+	$parameters = array(
+		'l' => '',
+		'h' => 'help',
+		'u' => '',
+		'v' => 'verbose',
+		'array:',
+		'delete-create-centre-raw-table',
+		'html-report-dir:',
+		'no-html-report',
+		'run-read-only',
+		'temp-dir'
+	);
+
+	// Grab command line options into $options
+	$options = getopt(implode('', array_keys($parameters)), $parameters);
+
+	// Prune the $argv array of options we'll be processing
+	$pruneargv = array();
+	foreach ($options as $option => $value) {
+		foreach ($argv as $key => $chunk) {
+			$regex = '/^'. (isset($option[1]) ? '--' : '-') . $option . '/';
+			if ($chunk == $value && $argv[$key-1][0] == '-' || preg_match($regex, $chunk)) {
+				array_push($pruneargv, $key);
+			}
+		}
+	}
+	while ($key = array_pop($pruneargv)) unset($argv[$key]);
+
+	// Error if anything left in $argv
+	if (count($argv) > 0) {
+		print('Error: Unrecogised command line options: ' . join(' ', $argv) . "\n");
+		exit(1);
+	}
+
+	// Process $options
+
+	function optionUsed($option, $options, $parameters) {
+		$shortOptUsed = key_exists($option, $options);
+		$longOptUsed = FALSE;
+		if (key_exists($option, $parameters)) {
+			$longOptUsed = key_exists($parameters[$option], $options);
+		}
+		if ($shortOptUsed) {
+			if ($options[$option] != FALSE) {
+				return $options[$option];
+			} else {
+				return TRUE;
+			}
+		} else if ($longOptUsed) {
+			if ($options[$parameters[$option]] != FALSE) {
+				return $options[$parameters[$option]];
+			} else {
+				return TRUE;
+			}
+		}
+		return FALSE;
+	}
+
+	if (optionUsed('v', $options, $parameters)) {
+		// Enable verbose output
+		$verbose = TRUE;
+	}
+
+	if (optionUsed('h', $options, $parameters)) {
+		// Help!
+		print($helpString);
+		exit(0);
+	}
+
+	if (optionUsed('l', &$options, &$parameters)) {
+		// Just list the known arrays in the database and exit
+		listArrays();
+		exit(0);
+	}
+
+	if (optionUsed('u', $options, &$parameters)) {
+		// Just update the arrays in the database from Simtricity and exit
+		print("Checking for new arrays from Simtricity platform...\n");
+
+		// TODO: Check for new arrays
+
+
+		listArrays();
+		exit(0);
+	}
+
+	if (optionUsed('delete-create-centre-raw-table', $options, $parameters)) {
+		$deleteCCRMode = TRUE;
+	}
+
+}
+
+
+
+
+
+// Connect to the BEC database
+$becDB = new BECDB('mysql', 'localhost', BEC_DATABASE_NAME, 'www-data', '');
+if (DEBUG) {
+	$dateTimes = $becDB->getDateTimeExtremesFromTable(BEC_DB_CREATE_CENTRE_RAW_TABLE);
+	print_r($dateTimes);
+}
+
+// Get the Gmail API client and construct the service object.
+
+$gmail = new BECGmailWrapper();
+
+if ($deleteCCRMode) {
+	// Drop the Create Centre table from the database
+	$result = $becDB->exec('DROP TABLE ' . BEC_DB_CREATE_CENTRE_RAW_TABLE);
+	if ($result !== FALSE) {
+		$result = $gmail->deleteLabel('IMPORTED');
+	}
+	exit($result !== FALSE ? 0 : 1);
+}
+
+// Normal processing mode
+
+// Import any new Create Centre data
+if (FALSE === $gmail->importNewMeteoData($becDB)) {
+	die('Error: Failed while importing Create Centre meteorlogical data' . "\n");
+}
+
+// Ensure the half-hourly view of the Create Centre data exists
+if (FALSE === $becDB->mkCreateCentreHalfHourView()) {
+	die('Error: Failed to create half-hourly view or Create Centre solar radiation data' . "\n");
+}
+
+// Update list of arrays from Simtricity
+$simtricity = new BECSimtricity();
+$meters = $simtricity->getListOfMeters();
+print("\nMeter list:\n");
+print_r($meters);
+$sites = $simtricity->getListOfSites();
+print("\nSite list:\n");
+print_r($sites);
+
+
+
+// Pull generation data for all Simtricity arrays
+
+
+// Compare solar radiation and generation readings
+
+
+// HTML report
+
+
+// Alert emails
+
+
+exit(0);
+?>
