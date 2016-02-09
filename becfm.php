@@ -268,7 +268,7 @@ if (FALSE === $becDB->mkCreateCentreHalfHourView()) {
 	die('Error: Failed to create half-hourly view or Create Centre solar radiation data' . "\n");
 }
 
-// Update list of arrays from Simtricity
+// Update list of sites and meters from Simtricity
 $simtricity = new BECSimtricity();
 $meters = $simtricity->getListOfMeters();
 print("\nMeter list:\n");
@@ -278,9 +278,14 @@ print("\nSite list:\n");
 print_r($sites);
 
 
+$simtricity->updateSiteDataFromSimtricty($becDB, 'sites');
+$simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
 
-// Pull generation data for all Simtricity arrays
 
+// Pull reading & power data for all Simtricity meters
+// TODO: Move functions into becdb.php and pass in $simtricity so it can be used to retrieve data
+$simtricity->updateAllMeterReadings($becDB);
+$simtricity->updateAllMeterPowerTables($becDB);
 
 // Compare solar radiation and generation readings
 

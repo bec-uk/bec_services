@@ -1,5 +1,26 @@
 <?php
 
+// Array of serial numbers to flow tokens FIXME: Want to find these tokens using the API and put them into the meters table!
+static $METER_FLOW_TOKEN = array(	// Hamilton House
+									'14230571' => 'wqajeuesl7vn3ni',
+									// Knowle West Media Centre
+									'14230570' => 'bnbjzj2ailar46y',
+									// Mill Youth Centre
+									'12156990' => 'gduk2r2s4tm5xfa', // Gen
+									'14230572' => 'qyevukhmupgileq', // Imp/Exp (export from this flow token)
+									// South Bristol Sports Centre
+									'14230573' => 'utanr5zchv4vyjy',
+									// Brentry and Henbury Children's Centre
+									'15096966' => 'mt5crncbrnoe2va', // Imp/Exp (export from this flow token)
+									'15096965' => 's7sxkbwnwsqf7ny', // Gen
+									// Folk House
+									'14240496' => 'f7fqhqcjeuhvaiq', // Imp/Exp (export from this flow token)
+									'12156991' => '3vhoc3jskh2xp7i', // Gen
+									// Easton Community Centre
+									'15096967' => 'o3slsz5fazdlfia',
+									'EML1325015602' => 'w4h5zzpru5q7wgy',
+									'EML1325015594' => 'mqkegznis77lqby',
+									'EML1325015592' => 'mrxbc5db2gwipzi');
 
 /**
  * Class handling access to the Simtricity platform for BEC PHP code
@@ -8,7 +29,6 @@
 class BECSimtricity {
 
 	private $token = NULL;
-
 
 	/**
 	 * Constructor; reads communication token from file
@@ -21,14 +41,11 @@ class BECSimtricity {
 	}
 
 
-	/**
-	 * Initialise a curl handle to GET JSON data
-	 * @param string $url The URL to GET from
-	 * @return object The object representing the decoded JSON data retreived
-	 */
-	protected function curlGetJSON($url, $supportPages = FALSE, $mergeArrayNames = NULL) {
+	protected function curlGetData($url, $contentAndAcceptTypes, &$returnCurlHandle = NULL) {
+		global $verbose;
+
 		$curlHandle = curl_init($url);
-		curl_setopt($curlHandle, CURLOPT_HTTPHEADER, array('Content-type: application/json', 'Accept: application/json'));
+		curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $contentAndAcceptTypes);
 		curl_setopt($curlHandle, CURLOPT_HEADER, FALSE);
 		curl_setopt($curlHandle, CURLOPT_FAILONERROR, TRUE);
 		// Default method is GET - no need to set
@@ -40,15 +57,114 @@ class BECSimtricity {
 		// Return the data fetched as the return value of curl_exec()
 		curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, TRUE);
 
-		print("\nTrying URL: $url\n");
+		if ($verbose > 0) {
+			print("\nTrying URL: $url\n");
+		}
 		$data = curl_exec($curlHandle);
 		if ($errNo = curl_errno($curlHandle)) {
-			die('Error: Failed to get JSON data from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
+			print('Error: Failed to get data from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
+			$data = FALSE;
 		}
 		if (DEBUG) {
 			print("Raw data:\n");
 			print_r($data);
 			print("\n");
+		}
+		if ($returnCurlHandle === NULL) {
+			curl_close($curlHandle);
+		} else {
+			$returnCurlHandle = $curlHandle;
+		}
+		return $data;
+	}
+
+
+	/**
+	 * Use a curl handle to read power data from the gviz/flow API and return it in
+	 * a prepared form we can use (stripping the Google Visualisation stuff so we just
+	 * have DateTimes and power readings).
+	 * @param string $url URL with full query
+	 * @return resource Array of DateTimes and power readings
+	 */
+	protected function curlGetPowerData($url) {
+		$gvizData = $this->curlGetData($url, array('Content-type: text/javascript', 'Accept: text/javascript, application/json'));
+
+		// Strip up to "rows":
+		$cutOffset = strpos($gvizData, '"rows":[') + 8;
+		if ($cutOffset == 8) {
+			die('Error: Pasring gviz data failed; did not find row info' . "\n");
+		}
+		$gvizData = substr($gvizData, $cutOffset);
+
+		// TODO: Check it's the data we expected
+
+
+		// Parse out the date, value pairs
+		if (4 === ($nextPos = strpos($gvizData, '"v":') + 4)) {
+			// No data!
+			return FALSE;
+		}
+		$next = substr($gvizData, $nextPos);
+		$thisDate = NULL;
+		$thisValue = NULL;
+		$count = 0;
+		while ($next) {
+			if (substr($next, 0, strlen('new Date')) === 'new Date') {
+				$dateArgs = substr($next, 9, strpos($next, ')', 9) - 9);
+				$thisDate = new DateTime();
+				$dateArgs = explode(',', $dateArgs);
+				// Note: JavaScript indexes months from 0; we add 1 for DateTime compatibility
+				$thisDate->setDate($dateArgs[0], $dateArgs[1] + 1, $dateArgs[2]);
+				$thisDate->setTime($dateArgs[3], $dateArgs[4], $dateArgs[5]);
+				$thisValue = NULL;
+			} else {
+				if ($thisValue !== NULL) {
+					die("Error: Parsing gviz data failed.  Current position:\n" . $next);
+				}
+				$thisValue = floatval(substr($next, 0, strpos($next, '}')));
+				$powerData[$count++] = array($thisDate, $thisValue);
+			}
+			if (4 === ($nextPos = strpos($next, '"v":') + 4)) {
+				// No more data found
+				break;
+			}
+			$next = substr($next, $nextPos);
+		}
+
+		if (DEBUG) {
+			print("Parsed power data is:\n");
+			print_r($powerData);
+		}
+
+		return $powerData;
+	}
+
+
+	/**
+	 * Use a curl handle to GET CSV data
+	 * @param string $url The URL to GET from
+	 * @return string The raw CSV data or FALSE if none/on failure
+	 */
+	protected function curlGetCSV($url) {
+		return $this->curlGetData($url, array('Content-type: text/csv', 'Accept: text/csv, application/json'));
+	}
+
+
+	/**
+	 * Initialise a curl handle to GET JSON data
+	 * @param string $url The URL to GET from
+	 * @return object The object representing the decoded JSON data retreived
+	 */
+	protected function curlGetJSON($url, $supportPages = FALSE, $mergeArrayNames = NULL) {
+		global $verbose;
+
+		$curlHandle = 'unset';
+		$data = $this->curlGetData($url, array('Content-type: application/json', 'Accept: application/json'), $curlHandle);
+
+		if (DEBUG) {
+			if ($curlHandle === 'unset') {
+				die("Error: API failed - curl handle was not set\n");
+			}
 		}
 
 		$jsonObj = json_decode($data);
@@ -63,7 +179,9 @@ class BECSimtricity {
 				// The order we get the pages doesn't matter; we just merge the meters array in the meterData
 				$pageURL = $url . '&page=' . ($pagesLeft + 1);
 				curl_setopt($curlHandle, CURLOPT_URL, $pageURL);
-				print("\nTrying URL: $pageURL\n");
+				if ($verbose > 0) {
+					print("\nTrying URL: $pageURL\n");
+				}
 				$data = curl_exec($curlHandle);
 				if ($errNo = curl_errno($curlHandle)) {
 					die('Error: Failed to get meter list page ' . ($pagesLeft + 1) . ' from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
@@ -115,12 +233,15 @@ class BECSimtricity {
 	 * @param string $filename Name of file to retrieve token from
 	 * @return string Token as a string
 	 */
-	public function getToken($filename = NULL) {
+	public function getAccessToken($filename = NULL) {
 		if ($this->token) {
 			return $this->token;
 		}
 		if ($filename === NULL) {
 			die("Error: No stored token, and no filename to read it from given\n");
+		}
+		if (!file_exists($filename)) {
+			die("Error: File not found trying to read Simtricity access token - $filename\n");
 		}
 		$inFile = fopen($filename, 'r');
 		$token = NULL;
@@ -152,6 +273,340 @@ class BECSimtricity {
 	}
 
 
+	/**
+	 * Function to get the latest Simtricity site data and sync it into the BEC
+	 * database.
+	 * @param resource $becDB The BEC database handle
+	 */
+	public function updateSiteDataFromSimtricty(&$becDB, $siteTable) {
+		$siteData = $this->getListOfSites();
+		// Ensure the table exists
+		if (!$becDB->isTablePresent($siteTable)) {
+			// Create the table
+			if (FALSE === $becDB->exec("CREATE TABLE $siteTable (name CHAR(64) NOT NULL UNIQUE,
+																	code CHAR(16),
+																	activity CHAR(16),
+																	token CHAR(32) NOT NULL UNIQUE,
+																	PRIMARY KEY(token))")) {
+				print("Failed to create table '$siteTable'\n");
+				return FALSE;
+			}
+		}
+
+		// Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+		$stmt = $becDB->prepare("INSERT INTO $siteTable (name, code, activity, token)
+											VALUES(:name, :code, :activity, :token)
+											ON DUPLICATE KEY UPDATE name=:name, code=:code, activity=:activity");
+		$stmt->bindParam(':name', $name);
+		$stmt->bindParam(':code', $code);
+		$stmt->bindParam(':activity', $activity);
+		$stmt->bindParam(':token', $token);
+		foreach ($siteData as $site) {
+			$name = $site->name;
+			$code = $site->code;
+			$activity = $site->activity;
+			$token = $site-> token;
+			if (FALSE == $stmt->execute()) {
+				print("Error: Failed running insertion '$stmt->queryString'\n");
+				if (DEBUG) {
+					print_r($this->dbHandle->errorInfo());
+				}
+				return FALSE;
+			}
+			if (DEBUG) print_r($stmt);
+		}
+	}
+
+
+	/**
+	 * Function to get the latest Simtricity meter meta-data and sync it into the BEC
+	 * database.
+	 * @param resource $becDB The BEC database handle
+	 */
+	public function updateMeterDataFromSimtricty(&$becDB, $meterTable) {
+		global $verbose;
+
+		$meterData = $this->getListOfMeters();
+		// Ensure the table exists
+		if (!$becDB->isTablePresent($meterTable)) {
+			// Create the table
+			if (FALSE === $becDB->exec("CREATE TABLE $meterTable (serial CHAR(32) NOT NULL UNIQUE,
+																	token CHAR(32) NOT NULL UNIQUE,
+																	siteToken CHAR(32) NOT NULL,
+																	code CHAR(16),
+																	model CHAR(32),
+																	spec CHAR(32),
+																	type CHAR(32) NOT NULL,
+																	startDate DATETIME,
+																	PRIMARY KEY(serial))")) {
+				print("Failed to create table '$meterTable'\n");
+				return FALSE;
+			}
+		}
+
+		// First get the site name to site token mappings
+		$siteTokensRaw = $becDB->fetchQuery('SELECT name, token FROM sites');
+		foreach ($siteTokensRaw as $raw) {
+			$siteTokenArray[$raw['name']] = $raw['token'];
+		}
+
+		// Add the data, ignore if already present (Warning: INSERT IGNORE is MySQL-specific)
+		// TODO: Do we want to support changes to the meter 'code'?
+		// FIXME: start is not a start date...initial reading maybe?...why so big?...date in different format (not a timestamp)?
+		$stmt = $becDB->prepare("INSERT IGNORE INTO $meterTable (serial, token, siteToken, code, model, spec, type, startDate)
+											VALUES(:serial, :token, :siteToken, :code, :model, :spec, :type, :startDate)");
+		$stmt->bindParam(':serial', $serial);
+		$stmt->bindParam(':token', $token);
+		$stmt->bindParam(':siteToken', $siteToken);
+		$stmt->bindParam(':code', $code);
+		$stmt->bindParam(':model', $model);
+		$stmt->bindParam(':spec', $spec);
+		$stmt->bindParam(':type', $type);
+		$stmt->bindParam(':startDate', $dateTimeStr);
+		if ($verbose > 0) {
+			print("Updating database table $meterTable");
+		}
+		foreach ($meterData as $meter) {
+			$serial = $meter->serial;
+			$token = $meter->meterToken;
+			$siteName = $meter->site;
+			$siteToken = $siteTokenArray[$siteName];
+			if (strlen($siteToken) < 2) {
+				die("Error: Failed to match meter site name to a site token\n");
+			}
+			$code = $meter->code;
+			$model = $meter->model;
+			$spec = $meter->spec;
+			$type = $meter->type;
+			$startDate = new DateTime();
+			$startDate->setTimestamp($meter->start);
+			$dateTimeStr = $startDate->format(DateTime::ISO8601);
+			if (FALSE == $stmt->execute()) {
+				print("Error: Failed running insertion '$stmt->queryString'\n");
+				print_r($this->dbHandle->errorInfo());
+				return FALSE;
+			}
+			if ($verbose > 0) {
+				print('.');
+			}
+		}
+		if ($verbose > 0) {
+			print("Done\n");
+		}
+	}
+
+
+	public function updatePowerDataFromSimtricity($becDB, $table, $meterInfo, $startDate) {
+		global $verbose, $ini, $METER_FLOW_TOKEN;
+
+		// Ensure the table exists
+		if (!$becDB->isTablePresent($table)) {
+			// Create the table
+			if (FALSE === $becDB->exec("CREATE TABLE $table (datetime DATETIME NOT NULL,
+																power FLOAT)")) {
+				print("Failed to create table '$table'\n");
+				return FALSE;
+			}
+		}
+
+		// Lookup the flow token for this meter (FIXME: Not yet in the database as don't know how to retrieve from the API!)
+		$flowToken = $METER_FLOW_TOKEN[$meterInfo['serial']];
+
+		$url = $ini['simtricity_base_uri'] . '/gviz/flow?authkey=' . $this->getAccessToken();
+		$url .= '&resolution=PT30M';
+		$url .= '&start=' . $startDate->format('Y-m-d\TH:i');
+		// Now as the end time
+		$endDate = new DateTime();
+		$url .= '&end=' . $endDate->format('Y-m-d\TH:i');
+		$url .= '&tq=' . urlencode('select `timestamp`, `' . $flowToken . '` label `timestamp` "Time", `' . $flowToken . '` "Generation "') . '&tqx=reqId:3';
+
+		if ($verbose > 0) {
+			print('Retrieving power data for meter with serial number ' . $meterInfo['serial'] . "\n");
+		}
+		$data = $this->curlGetPowerData($url);
+		if ($data === FALSE) {
+			print('No data retrieved for meter with serial number ' . $meterInfo['serial'] . "\n");
+			return;
+		}
+
+		// Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+		$stmt = $becDB->prepare("INSERT IGNORE INTO $table (datetime, power)
+											VALUES(:datetime, :power)");
+		$stmt->bindParam(':datetime', $dateTimeStr);
+		$stmt->bindParam(':power', $power);
+
+		if ($verbose > 0) {
+			print("Updating table $table.");
+		}
+
+		foreach ($data as $entry) {
+			$dateTimeStr = $entry[0]->format(DateTime::ISO8601);
+			$power = $entry[1];
+
+			if (FALSE == $stmt->execute()) {
+				print("Error: Failed running insertion '$stmt->queryString'\n");
+				if (DEBUG) {
+					print_r($this->dbHandle->errorInfo());
+				}
+				return FALSE;
+			}
+			if ($verbose > 0) {
+				print('.');
+			}
+		}
+		if ($verbose > 0) {
+			print("done\n");
+		}
+	}
+
+
+	/**
+	 * Function to retrieve meter data recordings to a table in the BEC database
+	 * @param resource $becDB The BEC database handle
+	 * @param string $table Name of table in database
+	 * @param string $meterSerial
+	 * @param string $meterType
+	 * @param DateTime $startDate
+	 */
+	public function updateReadingDataFromSimtricity($becDB, $table, $meterSerial, $meterType, $startDate) {
+		global $verbose, $ini;
+
+		// Ensure the table exists
+		if (!$becDB->isTablePresent($table)) {
+			// Create the table
+			if (FALSE === $becDB->exec("CREATE TABLE $table (datetime DATETIME NOT NULL,
+																readingImport FLOAT,
+																readingExport FLOAT)")) {
+				print("Failed to create table '$table'\n");
+				return FALSE;
+			}
+		}
+
+		// Use the Simtricity export API to get half-hourly data in CSV format
+		// FIXME: Can only get daily readings from the export Simtricity API; anything smaller
+		// is interpolated (although asking for ACTUAL readings we only get actual readings
+		// which are usually once a day, but could be less often).
+		$url = $ini['simtricity_base_uri'] . "/a/export/meter/$meterType/$meterSerial?authkey=" . $this->getAccessToken();
+		$url .= '&start=' . $startDate->format('Y-m-d\TH:i:s\Z');
+		$now = new DateTime();
+		$url .= '&end=' . $now->format('Y-m-d\TH:i:s\Z');
+		$url .= '&resolution=PT30M';
+		$url .= '&reading-type=ACTUAL';
+
+/*		$url = $ini['simtricity_base_uri'] . '/a/flow?token=mu4teeyxuvupbry';
+		$url .= '&start=' . $startDate->format('Y-m-d\TH:i:s\Z');
+		$now = new DateTime();
+		$url .= '&end=' . $now->format('Y-m-d\TH:i:s\Z');
+		$url .= '&resolution=PT30M';
+		//$url .= '&type=GENERATION';
+		//$url .= '&tqx=out:csv;reqId:0';
+*/
+		if ($verbose > 0) {
+			print("Retrieving reading data for meter with serial number $meterSerial\n");
+		}
+		$csvData = $this->curlGetCSV($url);
+		if ($csvData === FALSE) {
+			print("No data retrieved for meter with serial number $meterSerial\n");
+			return;
+		}
+		if ($verbose > 0) {
+			print("\tDone\n");
+		}
+
+		// Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+		$stmt = $becDB->prepare("INSERT IGNORE INTO $table (datetime, readingImport, readingExport)
+											VALUES(:datetime, :readingImport, :readingExport)");
+		$stmt->bindParam(':datetime', $dateTimeStr);
+		$stmt->bindParam(':readingImport', $readingImport);
+		$stmt->bindParam(':readingExport', $readingExport);
+
+		// Headings
+		$row = strtok($csvData,"\n");
+		// First row of data
+		$row = strtok("\n");
+		if ($verbose > 0) {
+			print("Updating table $table.");
+		}
+		while ($row !== FALSE) {
+			$rowCSV = str_getcsv($row);
+
+			$dateTime = new DateTime($rowCSV[1]);
+			$dateTimeStr = $dateTime->format(DateTime::ISO8601);
+			$readingImport = $rowCSV[2];
+			$readingExport = $rowCSV[3];
+
+			if (FALSE == $stmt->execute()) {
+				print("Error: Failed running insertion '$stmt->queryString'\n");
+				if (DEBUG) {
+					print_r($this->dbHandle->errorInfo());
+				}
+				return FALSE;
+			}
+			if ($verbose > 0) {
+				print('.');
+			}
+
+			$row = strtok("\n");
+		}
+		if ($verbose > 0) {
+			print("\n\tDone\n");
+		}
+	}
+
+
+	/**
+	 * For each meter, retrieve all it's data following the latest reading
+	 * already present in the database.
+	 * @param resource $becDB The BEC database handle
+	 */
+	public function updateAllMeterReadings($becDB) {
+		$meterInfo = $becDB->getMeterInfoArray();
+
+		foreach ($meterInfo as $meter) {
+			$tableName = 'dailyreading_' . $becDB->meterTableName($meter['code']);
+
+			if ($becDB->isTablePresent($tableName) && ($date = $becDB->getDateTimeExtremesFromTable($tableName))) {
+				$startDate = $date[1];
+			} else {
+				// Default to the turn of the millenium
+				$startDate = new DateTime('2000-01-01T00:00:00Z');
+			}
+
+			$this->updateReadingDataFromSimtricity($becDB, $tableName, $meter['serial'], $meter['type'], $startDate);
+		}
+	}
+
+
+	/**
+	 * For each meter, retrieve all it's power measurements folling the last already in the database
+	 * @param resource $becDB The BEC database handle
+	 */
+	public function updateAllMeterPowerTables($becDB)	{
+		global $verbose;
+
+		$meterInfo = $becDB->getMeterInfoArray();
+
+		foreach ($meterInfo as $meter) {
+			$tableName = 'power_' . $becDB->meterTableName($meter['code']);
+
+			if ($becDB->isTablePresent($tableName) && ($date = $becDB->getDateTimeExtremesFromTable($tableName))) {
+				$startDate = $date[1];
+				$now = new DateTime();
+				// Skip if latest time is already less than 23 hours ago
+				if ($now->diff($startDate)->h < 23) {
+					if ($verbose > 0) {
+						print("Table $tableName already up to date\n");
+					}
+					continue;
+				}
+			} else {
+				// Default to the turn of the millenium
+				$startDate = new DateTime('2000-01-01T00:00:00Z');
+			}
+
+			$this->updatePowerDataFromSimtricity($becDB, $tableName, &$meter, $startDate);
+		}
+	}
 }
 
 ?>

@@ -46,6 +46,20 @@ class BECDB
 
 
 	/**
+	 * Prepare an SQL command for use on the database
+	 * @param string $sql SQL command to prepare
+	 * @return Returns the result of the PDO::prepare function
+	 */
+	public function prepare($sql) {
+		if (FALSE === ($result = $this->dbHandle->prepare($sql))) {
+			print("Error: Failed to prepare SQL command '$sql'\n");
+			print_r($this->dbHandle->errorInfo());
+		}
+		return $result;
+	}
+
+
+	/**
 	 * Execute an SQL command on the database
 	 * @param string $sql SQL command to execute
 	 * @return Returns the number of rows affected, or FALSE on failure
@@ -91,9 +105,9 @@ class BECDB
 			print_r($this->dbHandle->errorInfo());
 			return FALSE;
 		}
-		$result = $query->fetch();
+		$result = $query->fetchAll();
 		if (FALSE === $result) {
-			print("Error: Failed to perform query '$sql'\n");
+			print("Error: Failed to store result of query '$sql'\n");
 			print_r($this->dbHandle->errorInfo());
 		}
 		return $result;
@@ -105,7 +119,7 @@ class BECDB
 	 * Retrieve the earliest & latest DateTimes from the 'datetime' field in a named SQL table
 	 * @param string $table
 	 * @return DateTime[2] An array with the earliest and latest DateTimes in
-	 * 			the given table, or FALSE on failure
+	 * 			the given table, or FALSE on failure/no entries
 	 */
 	function getDateTimeExtremesFromTable($table)
 	{
@@ -118,16 +132,22 @@ class BECDB
 		if (DEBUG) {
 			print_r($result);
 		}
+		$i = 0;
+		foreach ($result as $column) {
+			$fieldName[$i++] = $column['Field'];
+		}
 
-		if ($result != FALSE && FALSE != array_search('datetime', $result)) {
+		if ($result != FALSE && FALSE !== array_search('datetime', $fieldName)) {
+			$result = array();
 			$result[0] = $this->fetchQuery('SELECT MIN(datetime) FROM ' . $table);
 			$result[1] = $this->fetchQuery('SELECT MAX(datetime) FROM ' . $table);
 			if (DEBUG) print_r($result);
-			if (!$result[0] || !$result[1]) {
-				print("Error: Failed to retrieve earliest and latest datetimes from tbale '$table'\n");
+			if (FALSE === $result[0] || NULL === $result[0][0][0] || FALSE === $result[1] || NULL === $result[1][0][0]) {
+				print("Error: Failed to retrieve earliest and latest datetimes from table '$table'\n");
 				return FALSE;
 			}
-			return array(new DateTime($result[0][0]), new DateTime($result[1][0]));
+
+			return array(new DateTime($result[0][0][0]), new DateTime($result[1][0][0]));
 		} else {
 			return FALSE;
 		}
@@ -224,8 +244,9 @@ class BECDB
 				return FALSE;
 			}
 
-			// Add the data
-			$stmt = $this->dbHandle->prepare("INSERT INTO $table (datetime, $substance) VALUES(:dt, :r) ON DUPLICATE KEY UPDATE $substance=:r");
+			// Add the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+			$stmt = $this->prepare("INSERT INTO $table (datetime, $substance) VALUES(:dt, :r)
+									ON DUPLICATE KEY UPDATE $substance=:r");
 			$stmt->bindParam(':dt', $dateTimeStr);
 			$stmt->bindParam(':r', $reading);
 			while ($data = fgetcsv($csvFile)) {
@@ -269,6 +290,17 @@ class BECDB
 			}
 		}
 		return TRUE;
+	}
+
+
+	public function getMeterInfoArray() {
+		$meterInfo = $this->fetchQuery('SELECT serial, type, code FROM meters');
+		return $meterInfo;
+	}
+
+
+	public function meterTableName($code) {
+		return str_replace('-', '_', strtolower($code));
 	}
 
 
