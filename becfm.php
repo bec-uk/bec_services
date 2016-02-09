@@ -29,7 +29,7 @@ if (php_sapi_name() != 'cli') {
  * Defines and globals
  *****************************************************************************/
 
-define('DEBUG', TRUE);
+define('DEBUG', FALSE);
 if (DEBUG) {
 	print("Executing in debug mode\n");
 }
@@ -91,8 +91,10 @@ $helpString = "Usage: php $argv[0] <options>\n" .
 			'  -v		Verbose output' . "\n" .
 			'  --array <array>		Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
 			'  --delete-create-centre-raw-table' . "\n" .
-			"\t\t\t\t" . 'Delete the Create Centre meteo raw data table and delete the IMPORTED label from the gmail account so everything will be re-imported' . "\n" .
-			'  --html-report-dir <path>' . "\n" .
+			"\t\t\t\t" . 'Delete the Create Centre meteo raw data table and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
+'  --delete-all-simtricity-raw-tables' . "\n" .
+			"\t\t\t\t" . 'Delete all of the Simtricity meter reading raw data tables and exit' . "\n" .
+'  --html-report-dir <path>' . "\n" .
 			"\t\t\t\t" . 'Location to write the HTML report (default is /var/www/bec-gen-report)' . "\n" .
 			'  --no-html-report	Supress creation of HTML report (default is to create an HTML report a web browser can read)' . "\n" .
 			'  --run-read-only		Run on existing data and report only to screen; do not alter database or Gmail account (send emails) and don\'t create HTML report' . "\n" .
@@ -107,6 +109,7 @@ $helpString = "Usage: php $argv[0] <options>\n" .
 unset($argv[0]);
 
 $deleteCCRMode = FALSE;
+$deleteSimtricityMode = FALSE;
 
 if ($argc > 1) {
 	// There were some options/arguments.  Process them...
@@ -119,6 +122,7 @@ if ($argc > 1) {
 		'v' => 'verbose',
 		'array:',
 		'delete-create-centre-raw-table',
+		'delete-all-simtricity-raw-tables',
 		'html-report-dir:',
 		'no-html-report',
 		'run-read-only',
@@ -207,9 +211,14 @@ if ($argc > 1) {
 		$deleteCCRMode = TRUE;
 	}
 
+	if (optionUsed('delete-all-simtricity-raw-tables', $options, $parameters)) {
+		if ($deleteCCRMode) {
+			print("Warning: The --delete-all-simtricity-raw-tables option will be ignored as --delete-create-centre-raw-table was specified too\n");
+		}
+		$deleteSimtricityMode = TRUE;
+	}
+
 }
-
-
 
 
 // ini contains defaults which can be overriden by the ini file
@@ -243,8 +252,7 @@ if (DEBUG) {
 	print_r($dateTimes);
 }
 
-// Get the Gmail API client and construct the service object.
-
+// Create Centre data: get the Gmail API client and construct the service object.
 $gmail = new BECGmailWrapper();
 
 if ($deleteCCRMode) {
@@ -256,28 +264,45 @@ if ($deleteCCRMode) {
 	exit($result !== FALSE ? 0 : 1);
 }
 
+if ($deleteSimtricityMode) {
+	// Drop all the Simtricity reading and power tables
+	$meterInfo = $becDB->getMeterInfoArray();
+	$result = TRUE;
+	foreach ($meterInfo as $meter) {
+		foreach (array('dailyreading_', 'power_') as $prefix) {
+			$tableName = $prefix . $becDB->meterTableName($meter['code']);
+			$res = $becDB->exec('DROP TABLE ' . $tableName);
+			if ($res === FALSE) {
+				print("Error: Failed when trying to remove table $tableName\n");
+				$result = $res;
+			}
+		}
+	}
+	exit($result !== FALSE ? 0 : 1);
+}
+
 // Normal processing mode
 
-// Import any new Create Centre data
+// Import any new Create Centre data from Gmail account
 if (FALSE === $gmail->importNewMeteoData($becDB)) {
 	die('Error: Failed while importing Create Centre meteorlogical data' . "\n");
 }
 
-// Ensure the half-hourly view of the Create Centre data exists
+// Ensure the half-hourly view of the Create Centre data exists (to match power data)
 if (FALSE === $becDB->mkCreateCentreHalfHourView()) {
 	die('Error: Failed to create half-hourly view or Create Centre solar radiation data' . "\n");
 }
 
 // Update list of sites and meters from Simtricity
 $simtricity = new BECSimtricity();
-$meters = $simtricity->getListOfMeters();
-print("\nMeter list:\n");
-print_r($meters);
-$sites = $simtricity->getListOfSites();
-print("\nSite list:\n");
-print_r($sites);
-
-
+if (DEBUG) {
+	$meters = $simtricity->getListOfMeters();
+	print("\nMeter list:\n");
+	print_r($meters);
+	$sites = $simtricity->getListOfSites();
+	print("\nSite list:\n");
+	print_r($sites);
+}
 $simtricity->updateSiteDataFromSimtricty($becDB, 'sites');
 $simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
 
