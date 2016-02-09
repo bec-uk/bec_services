@@ -1,5 +1,7 @@
 <?php
 
+include "phpgraphlib/phpgraphlib.php";
+
 /**
  * Class encapsulating actions on the BEC database
  * @author David Cook
@@ -303,6 +305,58 @@ class BECDB
 		return str_replace('-', '_', strtolower($code));
 	}
 
+
+	public function createGraphImage($imageFilename, $powerTable, $solRadTable, $dateRange = NULL) {
+		global $verbose;
+
+		// We inner join the tables on the datetime field.  This is expected to be called on
+		// a solar radiation data table and a instananeous power data table so the two can
+		// be easily compared.  They will need different y-axes.
+
+		if ($verbose > 0) {
+			print("Generating power graph in file $imageFilename\n");
+		}
+
+		$sql = "SELECT $powerTable.datetime, power, sol_rad
+				FROM $solRadTable INNER JOIN $powerTable
+				ON $powerTable.datetime = $solRadTable.datetime";
+
+		$whereClause = '';
+		$whereClausePower = '';
+		if ($dateRange != NULL) {
+			$whereClause = " WHERE DATE($solRadTable.datetime) > '" . $dateRange[0]->format('Y-m-d') . "' &&
+								DATE($solRadTable.datetime) < '" . $dateRange[1]->format('Y-m-d') . "'";
+			$whereClausePower = str_replace($solRadTable, $powerTable, $whereClause);
+		}
+		$sql .= $whereClause;
+
+		$data = $this->fetchQuery($sql);
+
+		$maxPower = $this->fetchQuery("SELECT MAX(power) FROM $powerTable" . $whereClausePower);
+		$maxSolRad = $this->fetchQuery("SELECT MAX(sol_rad) FROM $solRadTable" . $whereClause);
+
+		$graph = new PHPGraphLib(10000, 1000, $imageFilename);
+		$graph->setTitle($powerTable . ' against solar radiation (both scaled to % of maximum recorded value)');
+		$graph->setBars(FALSE);
+		$graph->setLine(TRUE);
+		$graph->setLineColor('red', 'yellow');
+		$graph->setLegend(TRUE);
+		$graph->setLegendTitle('Power', 'Solar radiation');
+
+		// Reassmble the data into the form needed for PHPGraphLib and scale values so they can be plotted on the same
+		// y-axis (a limitation of PHPGraphLib...if we can go GPLv3, we can use PCharts2 which can do multiple y-axes,
+		// or there's SVGGraph which is LGPL).
+		foreach ($data as $entry) {
+			$powerData[$entry['datetime']] = $entry['power'] / $maxPower[0][0] * 100;
+			$solRadData[$entry['datetime']] = $entry['sol_rad'] / $maxSolRad[0][0] * 100;
+		}
+		// Free up memory (maybe!)
+		$data = NULL;
+
+		$graph->addData($powerData, $solRadData);
+
+		$graph->createGraph();
+	}
 
 }
 ?>

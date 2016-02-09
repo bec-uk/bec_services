@@ -292,6 +292,39 @@ $simtricity->updateAllMeterPowerTables($becDB);
 
 // HTML report
 
+// Generate graphs
+foreach ($becDB->getMeterInfoArray() as $meter) {
+	$niceMeterName = $becDB->meterTableName($meter['code']);
+	$powerTable = 'power_' . $niceMeterName;
+
+	$fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable);
+
+	if ($fullDateRange) {
+		$interval = $fullDateRange[0]->diff($fullDateRange[1]);
+		if ($interval->y > 1 || $interval->m > 1 || $interval->d > 28) {
+			// Show 28 days at a time
+			$lowerDate = $fullDateRange[0];
+			$upperDate = clone $lowerDate;
+			$fourWeeks = new DateInterval('P4W');
+			$upperDate->add($fourWeeks);
+			while ($lowerDate->getTimestamp() < $fullDateRange[1]->getTimestamp()) {
+				$becDB->createGraphImage($niceMeterName . '_' . $lowerDate->format('Ymd') . '.png',
+											$powerTable,
+											BEC_DB_CREATE_CENTRE_RAW_TABLE,
+											array($lowerDate, $upperDate));
+				$lowerDate->add($fourWeeks);
+				$upperDate->add($fourWeeks);
+			}
+		} else {
+			// Show all
+			$becDB->createGraphImage($niceMeterName . '.png',
+										$powerTable,
+										BEC_DB_CREATE_CENTRE_RAW_TABLE,
+										$fullDateRange);
+		}
+
+	}
+}
 
 // Alert emails
 
