@@ -14,7 +14,9 @@ class BECSimtricity {
 	 * Constructor; reads communication token from file
 	 */
 	public function __construct() {
-		$this->token = $this->getToken(SIMTRICITY_TOKEN_FILE);
+		global $ini;
+
+		$this->token = $this->getAccessToken($ini['simtricity_token_path']);
 		return $this;
 	}
 
@@ -85,7 +87,9 @@ class BECSimtricity {
 	 * Return an object containing all the site info we can get
 	 */
 	public function getListOfSites() {
-		$url = SIMTRICITY_BASE_URI . '/a/site?authkey=' . $this->getToken();
+		global $ini;
+
+		$url = $ini['simtricity_base_uri'] . '/a/site?authkey=' . $this->getAccessToken();
 		$siteData = $this->curlGetJSON($url, TRUE, array('sites'));
 		return $siteData->sites;
 	}
@@ -95,7 +99,9 @@ class BECSimtricity {
 	 * Return an array containing all the meter info we can get
 	 */
 	public function getListOfMeters() {
-		$url = SIMTRICITY_BASE_URI . '/a/meter?authkey=' . $this->getToken();
+		global $ini;
+
+		$url = $ini['simtricity_base_uri'] . '/a/meter?authkey=' . $this->getAccessToken();
 		$meterData = $this->curlGetJSON($url, TRUE, array('meters'));
 		return $meterData->meters;
 	}

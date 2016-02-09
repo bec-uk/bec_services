@@ -34,30 +34,24 @@ if (DEBUG) {
 	print("Executing in debug mode\n");
 }
 
-// Simtricity API stuff
-define('SIMTRICITY_BASE_URI', 'https://trial.simtricity.com');
-define('SIMTRICITY_TOKEN_FILE', 'simtricity_token.txt');
-
+define('BECFM_INI_FILENAME', 'becfm.ini');
+$iniFilename = BECFM_INI_FILENAME;
 
 // Stuff to the Google Gmail API
 require __DIR__ . '/vendor/autoload.php';
-define('APPLICATION_NAME', 'BEC Fault Monitoring');
-define('CREDENTIALS_PATH', '~/.credentials/bec_fault_mon.json');
-define('CLIENT_SECRET_PATH', __DIR__ . '/client_secret.json');
-define('SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
-									Google_Service_Gmail::GMAIL_MODIFY,
-									//Google_Service_Gmail::GMAIL_READONLY,
-									Google_Service_Gmail::GMAIL_COMPOSE)));
+define('GMAIL_SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
+											Google_Service_Gmail::GMAIL_MODIFY,
+											//Google_Service_Gmail::GMAIL_READONLY,
+											Google_Service_Gmail::GMAIL_COMPOSE)));
 
-define('BEC_GMAIL_USER', 'me');
 define('TEMP_DIR', '/tmp');
 
-// The name of the BEC database on the database server
-define('BEC_DATABASE_NAME', 'bec');
+// BEC database stuff
 define('BEC_DB_CREATE_CENTRE_RAW_TABLE', 'create_centre_meteo_raw');
+define('CAN_USE_LOAD_DATA_INFILE', FALSE);
+
 // The email address Create Centre emails come from
 define('CREATE_CENTRE_EMAIL_ADDR', 'info@bristol.airqualitydata.com');
-define('CAN_USE_LOAD_DATA_INFILE', FALSE);
 
 // Array to map Create Centre substance strings to database field names
 $CREATE_CENTRE_SUBSTANCES = array('Relative Humidity' => 'rel_humidity',
@@ -120,6 +114,7 @@ if ($argc > 1) {
 	$parameters = array(
 		'l' => '',
 		'h' => 'help',
+		'i:' => 'ini-file:',
 		'u' => '',
 		'v' => 'verbose',
 		'array:',
@@ -180,6 +175,11 @@ if ($argc > 1) {
 		$verbose = TRUE;
 	}
 
+	if ($t = optionUsed('i', $options, $parameters)) {
+		// Enable verbose output
+		$iniFilename = $t;
+	}
+
 	if (optionUsed('h', $options, $parameters)) {
 		// Help!
 		print($helpString);
@@ -212,9 +212,32 @@ if ($argc > 1) {
 
 
 
+// ini contains defaults which can be overriden by the ini file
+$ini = array(	// Database
+				'database_type' => 'mysql',
+				'database_host' => 'localhost',
+				'database_name' => 'bec',
+				'database_username' => 'www-data',
+				'database_user_password' => '',
+				// Gmail
+				'gmail_application_name' => 'BEC Fault Monitoring',
+				'gmail_credentials_path' => __DIR__ . '/bec_fault_mon.json',
+				'gmail_client_secret_path' => __DIR__ . '/client_secret.json',
+				'gmail_username' => 'me',
+				//Simtricity
+				'simtricity_base_uri' => 'https://trial.simtricity.com',
+				'simtricity_token_path' => __DIR__ . '/simtricity_token.txt'
+				);
+
+// Read configuration from ini file to override defaults
+if (file_exists($iniFilename)) {
+	$iniValues = parse_ini_file($iniFilename);
+}
 
 // Connect to the BEC database
-$becDB = new BECDB('mysql', 'localhost', BEC_DATABASE_NAME, 'www-data', '');
+$becDB = new BECDB($iniValues['database_type'], $iniValues['database_host'],
+					$iniValues['database_name'], $iniValues['database_username'],
+					$iniValues['database_user_password']);
 if (DEBUG) {
 	$dateTimes = $becDB->getDateTimeExtremesFromTable(BEC_DB_CREATE_CENTRE_RAW_TABLE);
 	print_r($dateTimes);

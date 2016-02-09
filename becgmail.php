@@ -18,14 +18,16 @@ class BECGmailWrapper
 	 * @return Google_Client the authorized client object
 	 */
 	function getClient() {
+		global $ini;
+
 		$client = new Google_Client();
-		$client->setApplicationName(APPLICATION_NAME);
-		$client->setScopes(SCOPES);
-		$client->setAuthConfigFile(CLIENT_SECRET_PATH);
+		$client->setApplicationName($ini['gmail_application_name']);
+		$client->setScopes(GMAIL_SCOPES);
+		$client->setAuthConfigFile($ini['gmail_client_secret_path']);
 		$client->setAccessType('offline');
 
 		// Load previously authorized credentials from a file.
-		$credentialsPath = expandHomeDirectory(CREDENTIALS_PATH);
+		$credentialsPath = expandHomeDirectory($ini['gmail_credentials_path']);
 		if (file_exists($credentialsPath)) {
 			$accessToken = file_get_contents($credentialsPath);
 		} else {
@@ -65,6 +67,8 @@ class BECGmailWrapper
 	 * @return array Array of handles to Messages.
 	 */
 	function getMessageHandleList($filter) {
+		global $ini;
+
 		$pageToken = NULL;
 		$messages = array();
 		$opt_param = array('q' => $filter);
@@ -73,7 +77,7 @@ class BECGmailWrapper
 				if ($pageToken) {
 					$opt_param['pageToken'] = $pageToken;
 				}
-				$messagesResponse = $this->service->users_messages->listUsersMessages(BEC_GMAIL_USER, $opt_param);
+				$messagesResponse = $this->service->users_messages->listUsersMessages($ini['gmail_username'], $opt_param);
 				if ($messagesResponse->getMessages()) {
 					$messages = array_merge($messages, $messagesResponse->getMessages());
 					$pageToken = $messagesResponse->getNextPageToken();
@@ -98,8 +102,10 @@ class BECGmailWrapper
 	 */
 	function listLabels()
 	{
+		global $ini;
+
 		// Print the labels in the user's account.
-		$results = $this->service->users_labels->listUsersLabels(BEC_GMAIL_USER);
+		$results = $this->service->users_labels->listUsersLabels($ini['gmail_username']);
 
 		if (count($results->getLabels()) == 0) {
 			print "No labels found.\n";
@@ -120,9 +126,11 @@ class BECGmailWrapper
 	 */
 	function getOrCreateLabelID($labelName)
 	{
+		global $ini;
+
 		static $label = NULL;
 		if ($label === NULL) {
-			$results = $this->service->users_labels->listUsersLabels(BEC_GMAIL_USER);
+			$results = $this->service->users_labels->listUsersLabels($ini['gmail_username']);
 			foreach ($results->getLabels() as $thisLabel) {
 				if ($thisLabel->getName() === $labelName) {
 					$label = $thisLabel;
@@ -135,7 +143,7 @@ class BECGmailWrapper
 			$label = new Google_Service_Gmail_Label();
 			$label->setName($labelName);
 			try {
-				$label = $this->service->users_labels->create(BEC_GMAIL_USER, $label);
+				$label = $this->service->users_labels->create($ini['gmail_username'], $label);
 				if (DEBUG) {
 					print 'Label \'$labelName\' with ID: ' . $label->getId() . " created \n";
 				}
@@ -156,12 +164,14 @@ class BECGmailWrapper
 	 */
 	function applyLabel($messageID, $labelName)
 	{
+		global $ini;
+
 		$labelID = $this->getOrCreateLabelID($labelName);
 
 		$modReq = new Google_Service_Gmail_ModifyMessageRequest();
 		$modReq->setAddLabelIds(array($labelID));
 		try {
-			$retVal = $this->service->users_messages->modify(BEC_GMAIL_USER, $messageID, $modReq);
+			$retVal = $this->service->users_messages->modify($ini['gmail_username'], $messageID, $modReq);
 			if ($retVal->getId() != $messageID) {
 				print("Error: Failed to apply label '$labelName' (ID '$labelID') to message\n");
 				return FALSE;
@@ -181,9 +191,11 @@ class BECGmailWrapper
 	 */
 	function deleteLabel($labelName)
 	{
+		global $ini;
+
 		$labelID = $this->getOrCreateLabelID($labelName);
 		try {
-			$this->service->users_labels->delete(BEC_GMAIL_USER, $labelID);
+			$this->service->users_labels->delete($ini['gmail_username'], $labelID);
 			if (DEBUG) {
 				print 'Label with id: ' . $labelID . ' successfully deleted.';
 			}
@@ -218,6 +230,8 @@ class BECGmailWrapper
 	 */
 	function importNewMeteoData($becDB)
 	{
+		global $ini;
+
 		// Get a list of email IDs from the Create Centre, subject
 		// "Air Quality Update", and not already marked as IMPORTED.
 		$createCentreUpdateEmailList = $this->getMessageHandleList(//'from:' . CREATE_CENTRE_EMAIL_ADDR . ', ' .
@@ -231,7 +245,7 @@ class BECGmailWrapper
 		// List the matching emails
 		foreach ($createCentreUpdateEmailList as $emailHandle)
 		{
-			$email = $this->service->users_messages->get(BEC_GMAIL_USER, $emailHandle->getId());
+			$email = $this->service->users_messages->get($ini['gmail_username'], $emailHandle->getId());
 			$payload = $email->getPayload();
 			$headers = $payload->getHeaders();
 			$dateTime;
@@ -259,7 +273,7 @@ class BECGmailWrapper
 						print(    "Data:\n");
 					}
 					$attachmentID = $msgPart->getBody()->getAttachmentId();
-					$data = $this->service->users_messages_attachments->get(BEC_GMAIL_USER, $emailHandle->getId(), $attachmentID)->getData();
+					$data = $this->service->users_messages_attachments->get($ini['gmail_username'], $emailHandle->getId(), $attachmentID)->getData();
 					$data = base64_decode($data, TRUE);
 					if (DEBUG) {
 						print($data . "\n");
