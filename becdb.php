@@ -419,8 +419,13 @@ class BECDB
 
         $data = $this->fetchQuery($sql);
 
-        $maxPower = $this->fetchQuery("SELECT MAX(power) FROM $powerTable" . $whereClausePower);
         $maxSolRad = $this->fetchQuery("SELECT MAX(sol_rad) FROM $solRadTable" . $whereClause);
+        $maxPower = $this->fetchQuery("SELECT MAX(power) FROM $powerTable" . $whereClausePower);
+        if ($maxPower[0][0] == 0)
+        {
+            // If there was never any power, divide by 1 rather than 0 when scaling!
+            $maxPower[0][0] = 1;
+        }
 
         $graph = new PHPGraphLib(10000, 1000, $imageFilename);
         $graph->setTitle($powerTable . ' against solar radiation (both scaled to % of maximum recorded value)');

@@ -370,7 +370,10 @@ $simtricity->updateAllMeterPowerTables($becDB);
 // HTML report
 
 // Generate graphs
-mkdir('graphs', 0777, TRUE);
+if (!file_exists('graphs'))
+{
+    mkdir('graphs');
+}
 foreach ($becDB->getMeterInfoArray() as $meter)
 {
     $niceMeterName = $becDB->meterTableName($meter['code']);
