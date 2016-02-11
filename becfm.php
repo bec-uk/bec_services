@@ -282,13 +282,13 @@ $ini = array(// Database
 // Read configuration from ini file to override defaults
 if (file_exists($iniFilename))
 {
-    $iniValues = parse_ini_file($iniFilename);
+    $ini = array_merge($ini, parse_ini_file($iniFilename));
 }
 
 // Connect to the BEC database
-$becDB = new BECDB($iniValues['database_type'], $iniValues['database_host'],
-                   $iniValues['database_name'], $iniValues['database_username'],
-                   $iniValues['database_user_password']);
+$becDB = new BECDB($ini['database_type'], $ini['database_host'],
+                   $ini['database_name'], $ini['database_username'],
+                   $ini['database_user_password']);
 if (DEBUG)
 {
     $dateTimes = $becDB->getDateTimeExtremesFromTable(BEC_DB_CREATE_CENTRE_RAW_TABLE);
