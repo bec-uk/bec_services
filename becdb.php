@@ -1,6 +1,6 @@
 <?php
 
-include "phpgraphlib/phpgraphlib.php";
+$graphsEnabled = include "phpgraphlib/phpgraphlib.php";
 
 /**
  * Class encapsulating actions on the BEC database
@@ -10,6 +10,7 @@ class BECDB
 {
     // PDO handle to the BEC database
     private $dbHandle;
+    public $graphsEnabled;
 
 
     /**
@@ -46,6 +47,9 @@ class BECDB
      */
     public function __construct($driver, $host, $dbName, $user, $password)
     {
+        global $graphsEnabled;
+
+        $this->graphsEnabled = $graphsEnabled;
         $this->connect($driver, $host, $dbName, $user, $password);
         return $this;
     }
@@ -432,6 +436,11 @@ class BECDB
     public function createGraphImage($imageFilename, $powerTable, $solRadTable, &$dateRange = NULL)
     {
         global $verbose;
+
+        if (!$this->graphsEnabled)
+        {
+            return;
+        }
 
         // We inner join the tables on the datetime field.  This is expected to be called on
         // a solar radiation data table and a instananeous power data table so the two can

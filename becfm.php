@@ -370,58 +370,71 @@ $simtricity->updateAllMeterPowerTables($becDB);
 // HTML report
 
 // Generate graphs
-if (!file_exists('graphs'))
+if ($becDB->graphsEnabled)
 {
-    mkdir('graphs');
-}
-foreach ($becDB->getMeterInfoArray() as $meter)
-{
-    $niceMeterName = $becDB->meterTableName($meter['code']);
-    $powerTable = 'power_' . $niceMeterName;
-
-    // Skip if table has no data
-    if (!$becDB->rowsInTable($powerTable))
+    if (!file_exists('graphs'))
     {
-        if ($verbose > 0)
-        {
-            print("Skipping graph for table $powerTable as it has no data\n");
-        }
-        continue;
+        mkdir('graphs');
     }
-
-    $fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable);
-
-    if ($fullDateRange)
+    foreach ($becDB->getMeterInfoArray() as $meter)
     {
-        $interval = $fullDateRange[0]->diff($fullDateRange[1]);
-        if ($interval->y > 1 || $interval->m > 1 || $interval->d > 28)
+        $niceMeterName = $becDB->meterTableName($meter['code']);
+        $powerTable = 'power_' . $niceMeterName;
+
+        // Skip if table has no data
+        if (!$becDB->rowsInTable($powerTable))
         {
-            // Show 28 days at a time
-            $lowerDate = $fullDateRange[0];
-            $upperDate = clone $lowerDate;
-            $fourWeeks = new DateInterval('P4W');
-            $upperDate->add($fourWeeks);
-            while ($lowerDate->getTimestamp() < $fullDateRange[1]->getTimestamp())
+            if ($verbose > 0)
             {
-                $dateRange = array($lowerDate, $upperDate);
-                $becDB->createGraphImage("graphs/${niceMeterName}_" . $lowerDate->format('Ymd') . '.png',
+                print("Skipping graph for table $powerTable as it has no data\n");
+            }
+            continue;
+        }
+
+        $fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable);
+
+        if ($fullDateRange)
+        {
+            $interval = $fullDateRange[0]->diff($fullDateRange[1]);
+            if ($interval->y > 1 || $interval->m > 1 || $interval->d > 28)
+            {
+                // Show 28 days at a time
+                $lowerDate = $fullDateRange[0];
+                $upperDate = clone $lowerDate;
+                $fourWeeks = new DateInterval('P4W');
+                $upperDate->add($fourWeeks);
+                while ($lowerDate->getTimestamp() < $fullDateRange[1]->getTimestamp())
+                {
+                    $dateRange = array($lowerDate, $upperDate);
+                    $becDB->createGraphImage("graphs/${niceMeterName}_" . $lowerDate->format('Ymd') . '.png',
+                                             $powerTable,
+                                             BEC_DB_CREATE_CENTRE_RAW_TABLE,
+                                             $dateRange);
+                    $lowerDate->add($fourWeeks);
+                    $upperDate->add($fourWeeks);
+                }
+            }
+            else
+            {
+                // Show all
+                $becDB->createGraphImage("graphs/$niceMeterName" . '.png',
                                          $powerTable,
                                          BEC_DB_CREATE_CENTRE_RAW_TABLE,
-                                         $dateRange);
-                $lowerDate->add($fourWeeks);
-                $upperDate->add($fourWeeks);
+                                         $fullDateRange);
             }
-        }
-        else
-        {
-            // Show all
-            $becDB->createGraphImage("graphs/$niceMeterName" . '.png',
-                                     $powerTable,
-                                     BEC_DB_CREATE_CENTRE_RAW_TABLE,
-                                     $fullDateRange);
-        }
 
+        }
     }
+}
+else if ($verbose > 0)
+{
+    print("Graph generation can be enabled by downloading PHPGraphLib, putting " .
+           "the phpgraphlib directory on the PHP include path (e.g. in the same " .
+           "directory as these PHP scripts).\n" .
+           "It can be git cloned using:\n" .
+           "\t git clone https://github.com/elliottb/phpgraphlib.git\n" .
+           "Website:\n" .
+           "\thttp://www.ebrueggeman.com/phpgraphlib\n");
 }
 
 // Alert emails
