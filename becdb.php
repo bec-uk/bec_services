@@ -182,6 +182,50 @@ class BECDB
 
 
     /**
+     * Function which returns the number of rows in the table
+     *
+     *
+     */
+    public function rowsInTable($table)
+    {
+        $rowCount = $this->fetchQuery("SELECT COUNT(1) FROM $table");
+        if (count($rowCount) > 0)
+            return $rowCount[0][0];
+        else
+          return 0;
+    }
+
+
+    /**
+     * Return TRUE if table has a column with the given name, otherwise FALSE
+     *
+     * @param string $table The name of the table to examine
+     * @param string $columnName The name of the column to look for
+     * @return TRUE if column exists in table, else FALSE (including on error)
+     */
+    public function tableHasColumn($table, $columnName)
+    {
+        $query = $this->dbHandle->query('DESCRIBE ' . $table);
+        if (FALSE === $query)
+        {
+            return FALSE;
+        }
+        $desc = $query->fetchAll();
+        if ($desc)
+        {
+            foreach ($desc as $column)
+            {
+                if ($column['Field'] == $columnName)
+                {
+                    return TRUE;
+                }
+            }
+        }
+        return FALSE;
+    }
+
+
+    /**
      * Import the content of a CSV file from the Create Centre roof weather
      * station.  This will merge with existing data if already present, or
      * create a new table if it doesn't already exist.
@@ -242,22 +286,17 @@ class BECDB
         }
 
         // Ensure the column for this substance exists in the table
-        $result = $this->exec("ALTER TABLE $table ADD COLUMN $substance DECIMAL(10,3)");
-        $columnExisted = FALSE;
-        if (FALSE === $result)
+        if (!$this->tableHasColumn($table, $substance))
         {
-            $err = $this->dbHandle->errorInfo();
-            if (DEBUG)
+            $result = $this->exec("ALTER TABLE $table ADD COLUMN $substance DECIMAL(10,3)");
+            if (FALSE === $result)
             {
-                print_r($err);
-            }
-            if (preg_match('/Duplicate column name/', $err[2]))
-            {
-                $columnExisted = TRUE;
-            }
-            else
-            {
-                print("Error: Database communication error");
+                $err = $this->dbHandle->errorInfo();
+                if (DEBUG)
+                {
+                    print_r($err);
+                }
+                print("Error: Failed to add column $substance to table $table\n");
                 return NULL;
             }
         }

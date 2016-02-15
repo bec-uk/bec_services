@@ -379,6 +379,16 @@ foreach ($becDB->getMeterInfoArray() as $meter)
     $niceMeterName = $becDB->meterTableName($meter['code']);
     $powerTable = 'power_' . $niceMeterName;
 
+    // Skip if table has no data
+    if (!$becDB->rowsInTable($powerTable))
+    {
+        if ($verbose > 0)
+        {
+            print("Skipping graph for table $powerTable as it has no data\n");
+        }
+        continue;
+    }
+
     $fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable);
 
     if ($fullDateRange)

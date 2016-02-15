@@ -78,7 +78,10 @@ class BECSimtricity
         $data = curl_exec($curlHandle);
         if ($errNo = curl_errno($curlHandle))
         {
-            print('Error: Failed to get data from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
+            if ($verbose > 0)
+            {
+                print('Info: No data returned from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
+            }
             $data = FALSE;
         }
         if (DEBUG)
@@ -486,6 +489,7 @@ class BECSimtricity
      * @param string $table Name of table to store the power data in
      * @param array $meterInfo Array containing the info for the meter to retrieve data for
      * @param DateTime $startDate Don't retrieve data before this date
+     * @return FALSE on failure
      */
     public function updatePowerDataFromSimtricity(&$becDB, $table, &$meterInfo, $startDate)
     {
@@ -516,12 +520,15 @@ class BECSimtricity
 
         if ($verbose > 0)
         {
-            print('Retrieving power data for meter with serial number ' . $meterInfo['serial'] . "\n");
+            print('Retrieving power data for meter ' . $meterInfo['code'] . ' with serial number ' . $meterInfo['serial'] . "\n");
         }
         $data = $this->curlGetPowerData($url);
         if ($data === FALSE)
         {
-            print('No data retrieved for meter with serial number ' . $meterInfo['serial'] . "\n");
+            if ($verbose > 0)
+            {
+                print('No data retrieved for meter ' . $meterInfo['code'] . ' with serial number ' . $meterInfo['serial'] . "\n");
+            }
             return;
         }
 
@@ -567,11 +574,10 @@ class BECSimtricity
      *
      * @param resource $becDB The BEC database handle
      * @param string $table Name of table in database
-     * @param string $meterSerial Serial number of meter
-     * @param string $meterType Type of meter
+     * @param string $meter Array containing info for this meter
      * @param DateTime $startDate Don't retrieve date before this date
      */
-    public function updateReadingDataFromSimtricity(&$becDB, $table, $meterSerial, $meterType, $startDate)
+    public function updateReadingDataFromSimtricity(&$becDB, $table, $meter, $startDate)
     {
         global $verbose, $ini;
 
@@ -592,7 +598,8 @@ class BECSimtricity
         // FIXME: Can only get daily readings from the export Simtricity API; anything smaller
         // is interpolated (although asking for ACTUAL readings we only get actual readings
         // which are usually once a day, but could be less often).
-        $url = $ini['simtricity_base_uri'] . "/a/export/meter/$meterType/$meterSerial?authkey=" . $this->getAccessToken();
+        $url = $ini['simtricity_base_uri'] . '/a/export/meter/' . $meter['type'] . '/' .
+                $meter['serial'] . '?authkey=' . $this->getAccessToken();
         $url .= '&start=' . $startDate->format('Y-m-d\TH:i:s\Z');
         $now = new DateTime();
         $url .= '&end=' . $now->format('Y-m-d\TH:i:s\Z');
@@ -609,12 +616,15 @@ class BECSimtricity
 */
         if ($verbose > 0)
         {
-            print("Retrieving reading data for meter with serial number $meterSerial.");
+            print('Retrieving reading data for meter ' . $meter['code'] . ' with serial number ' . $meter['serial'] . '.');
         }
         $csvData = $this->curlGetCSV($url);
         if ($csvData === FALSE)
         {
-            print("No data retrieved for meter with serial number $meterSerial\n");
+            if ($verbose > 0)
+            {
+                print('No data retrieved for meter ' . $meter['code'] . ' with serial number ' . $meter['serial'] . "\n");
+            }
             return;
         }
         if ($verbose > 0)
@@ -683,7 +693,7 @@ class BECSimtricity
         {
             $tableName = 'dailyreading_' . $becDB->meterTableName($meter['code']);
 
-            if ($becDB->isTablePresent($tableName) && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
+            if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
             {
                 $startDate = $date[1];
             }
@@ -693,7 +703,7 @@ class BECSimtricity
                 $startDate = new DateTime('2000-01-01T00:00:00Z');
             }
 
-            $this->updateReadingDataFromSimtricity($becDB, $tableName, $meter['serial'], $meter['type'], $startDate);
+            $this->updateReadingDataFromSimtricity($becDB, $tableName, $meter, $startDate);
         }
     }
 
@@ -713,7 +723,7 @@ class BECSimtricity
         {
             $tableName = 'power_' . $becDB->meterTableName($meter['code']);
 
-            if ($becDB->isTablePresent($tableName) && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
+            if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
             {
                 $startDate = $date[1];
                 $now = new DateTime();
