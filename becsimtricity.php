@@ -18,6 +18,7 @@ static $METER_FLOW_TOKEN = array(// Hamilton House
                                  '12156991' => '3vhoc3jskh2xp7i', // Gen
                                  // Easton Community Centre
                                  '15096967' => 'o3slsz5fazdlfia',
+                                 '15096969' => 'xxgt2dsuziyfc7a',
                                  'EML1325015602' => 'w4h5zzpru5q7wgy',
                                  'EML1325015594' => 'mqkegznis77lqby',
                                  'EML1325015592' => 'mrxbc5db2gwipzi');
@@ -451,6 +452,14 @@ class BECSimtricity
             $serial = $meter->serial;
             $token = $meter->meterToken;
             $siteName = $meter->site;
+            // FIXME: Shoudln't need this, but some Simtricity meter data is missing the site name
+            if (!$siteName)
+            {
+                if (substr($meter->code, 0, 3) == 'ECC')
+                {
+                    $siteName = 'Easton Community Centre';
+                }
+            }
             $siteToken = $siteTokenArray[$siteName];
             if (strlen($siteToken) < 2)
             {
@@ -509,6 +518,11 @@ class BECSimtricity
 
         // Lookup the flow token for this meter (FIXME: Not yet in the database as don't know how to retrieve from the API!)
         $flowToken = $METER_FLOW_TOKEN[$meterInfo['serial']];
+        if (strlen($flowToken) < 2)
+        {
+            print('Error: Failed to find flow API token for meter ' . $meterInfo{'code'} . ' - ' . $meterInfo{'serial'} . " - skipping\n");
+            return FALSE;
+        }
 
         $url = $ini['simtricity_base_uri'] . '/gviz/flow?authkey=' . $this->getAccessToken();
         $url .= '&resolution=PT30M';
