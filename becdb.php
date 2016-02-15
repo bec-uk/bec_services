@@ -188,7 +188,7 @@ class BECDB
     /**
      * Function which returns the number of rows in the table
      *
-     *
+     * @return Number of rows in the table (0 if doesn't exist)
      */
     public function rowsInTable($table)
     {

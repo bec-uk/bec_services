@@ -274,7 +274,7 @@ $ini = array(// Database
               'gmail_credentials_path' => __DIR__ . '/bec_fault_mon.json',
               'gmail_client_secret_path' => __DIR__ . '/client_secret.json',
               'gmail_username' => 'me',
-              //Simtricity
+              // Simtricity
               'simtricity_base_uri' => 'https://trial.simtricity.com',
               'simtricity_token_path' => __DIR__ . '/simtricity_token.txt'
               );
@@ -336,12 +336,6 @@ if ($deleteSimtricityMode)
 if (FALSE === $gmail->importNewMeteoData($becDB))
 {
     die('Error: Failed while importing Create Centre meteorlogical data' . "\n");
-}
-
-// Ensure the half-hourly view of the Create Centre data exists (to match power data)
-if (FALSE === $becDB->mkCreateCentreHalfHourView())
-{
-    die('Error: Failed to create half-hourly view or Create Centre solar radiation data' . "\n");
 }
 
 // Update list of sites and meters from Simtricity
