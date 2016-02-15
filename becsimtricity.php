@@ -146,6 +146,10 @@ class BECSimtricity
                 // Note: JavaScript indexes months from 0; we add 1 for DateTime compatibility
                 $thisDate->setDate($dateArgs[0], $dateArgs[1] + 1, $dateArgs[2]);
                 $thisDate->setTime($dateArgs[3], $dateArgs[4], $dateArgs[5]);
+
+                // Simtricity times are in local time - convert to GMT if needed
+                $this->datetimeToGMT($thisDate);
+
                 $thisValue = NULL;
             }
             else
@@ -584,6 +588,28 @@ class BECSimtricity
 
 
     /**
+     * Helper function to take off the BST offset if necessary to make all times GMT/UTC
+     * @param unknown_type $dateTime
+     */
+    public function dateTimeToGMT(&$dateTime)
+    {
+        // If this date & time is in BST, take 1 hour off to put it back into GMT/UTC
+        // so we have a common base for comparison with other data
+        $tz = new dateTimeZone('Europe/London');
+        $trans = $tz->getTransitions($dateTime->getTimestamp(), $dateTime->getTimestamp());
+        if ($trans[0]['offset'] > 0) {
+            if (DEBUG) {
+                print('In BST - altering ' . $dateTime->format('Y-m-d H:i:s'));
+            }
+            $dateTime->sub(new DateInterval('PT1H'));
+            if (DEBUG) {
+                print(' to ' . $dateTime->format('Y-m-d H:i:s') . "\n");
+            }
+        }
+    }
+
+
+    /**
      * Function to retrieve meter data recordings to a table in the BEC database
      *
      * @param resource $becDB The BEC database handle
@@ -666,6 +692,9 @@ class BECSimtricity
             $rowCSV = str_getcsv($row);
 
             $dateTime = new DateTime($rowCSV[1]);
+            // Simtricity times are in local time - convert to GMT if needed
+            $this->datetimeToGMT($dateTime);
+
             $dateTimeStr = $dateTime->format(DateTime::ISO8601);
             $readingImport = $rowCSV[2];
             $readingExport = $rowCSV[3];
