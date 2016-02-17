@@ -361,11 +361,190 @@ class BECDB
                     }
                     return FALSE;
                 }
+            }
+        }
+        // Success!
+        return TRUE;
+    }
+
+
+    function importFiltonCSV(&$filtonCSV, $table)
+    {
+        global $verbose;
+
+        // Prepare SQL (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+        $stmt = $this->prepare("INSERT INTO $table (datetime, sol_rad) VALUES(:dt, :sr)
+                                ON DUPLICATE KEY UPDATE sol_rad=:sr");
+        $stmt->bindParam(':dt', $dateTimeStr);
+        $stmt->bindParam(':sr', $solarAverage);
+
+        if ($verbose > 0)
+        {
+            print("Average solar radiation in W/m2 for preceding half hour periods:\n");
+        }
+        $count = 0;
+        $solarAccumulator = 0;
+        while ($result = $filtonCSV->getNextRow())
+        {
+            $count++;
+            $solarAccumulator += $filtonCSV->getSolRad();
+            // Read solar up to the next half-hour point and average solar
+            $minute = $filtonCSV->getMinute();
+            while ($minute != 0 && $minute != 30)
+            {
+                if (!($result = $filtonCSV->getNextRow()))
+                {
+                    break;
+                }
+                $count++;
+                $solarAccumulator += $filtonCSV->getSolRad();
+                $minute = $filtonCSV->getMinute();
+            }
+            if (FALSE === $result)
+            {
+                break;
+            }
+            // Now we're at a half-hour point; add a database entry
+            $solarAverage = $solarAccumulator / $count;
+            $dateTime = $filtonCSV->getDateTime();
+            $dateTimeStr = $dateTime->format(DateTime::ISO8601);
+            if ($verbose > 0)
+            {
+                print("\t$dateTimeStr: $solarAverage\n");
+            }
+            if (FALSE == $stmt->execute())
+            {
+                print("Error: Failed running insertion '$stmt->queryString'\n");
                 if (DEBUG)
                 {
-                    print_r($stmt);
+                    print_r($this->dbHandle->errorInfo());
                 }
+                return FALSE;
             }
+            /* We include this entry in the average for the next half hour
+             * too (our average is inclusive of both lower and upper bounds).
+             */
+            $count = 1;
+            $solarAccumulator = $filtonCSV->getSolRad();
+        }
+        return TRUE;
+    }
+
+
+    /**
+     * Import the content of a CSV file from the Filton weather station.
+     * This will merge with existing data if already present, or create a new
+     * table if it doesn't already exist.
+     * The CSV is in minutely data.  We average the solar radiation values at
+     * each half hour (using the data from the preceding half hour).  From my
+     * understanding, this should match what is done by the Simtricity flows
+     * API (I hope!).
+     * Only solar radiation in W/m2 is processed.
+     * File lines are expected to be in the format:
+     *   day, month, year, hour, min, Solar, UV, Daily ET, soil moist, leaf wet
+     *
+     * @param string $table The name of the table to import to
+     * @param string $filename The name of the CSV file containing the data to import
+     */
+    function importFiltonWeatherCSVFile($table, $filename)
+    {
+        global $verbose;
+
+        // Does $table exist?
+        if (!$this->isTablePresent($table))
+        {
+            // Create the table
+            if (FALSE === $this->exec("CREATE TABLE $table (datetime DATETIME NOT NULL UNIQUE, sol_rad DECIMAL(10,3))"))
+            {
+                print("Failed to create table '$table'\n");
+                return FALSE;
+            }
+        }
+
+        // Table exists now!  Let's start processing...
+        if ($verbose > 0)
+        {
+            print("Reading weather data from $filename...\n");
+        }
+
+        $filtonCSV = new FiltonCSV('file', $filename);
+        if (FALSE === $filtonCSV)
+        {
+            print("Error: Failed to open CSV file '$filename'\n");
+            return FALSE;
+        }
+
+        if (CAN_USE_LOAD_DATA_INFILE)
+        {
+            fclose($csvFile);
+            // TODO: Copy CSV file, merge date & time and stripping headers and trailing data fields
+            // Also average solar radiation values to half-hourly data (stamped
+            // with the end time of each half hour).
+            processFiltonWeatherCSV($filename, $filename . '.import');
+            $this->fetchQuery("");
+
+
+        }
+        else
+        {
+            // Adding rows one at a time
+            $importResult = $this->importFiltonCSV($filtonCSV, $table);
+        }
+        // Success!
+        return $importResult;
+    }
+
+
+    /**
+     * Import Filton weather data for a given date range from the web interface.
+     * This will merge with existing data if already present, or create a new
+     * table if it doesn't already exist.
+     * The CSV is in 10-minute intervals.  We average the solar radiation values at
+     * each half hour (using the data from the preceding half hour).  From my
+     * understanding, this should match what is done by the Simtricity flows
+     * API (I hope!).
+     * Only solar radiation in W/m2 is processed (currently).
+     * File lines are expected to be in the format:
+     *   DATE, TIME, TEMP C, GUST mph, DIR, AVG mph, HUM %, BARO mb, TREND mb, RAIN mm,SOLAR W/m2, UV, WEATHER
+     *
+     * @param string $table The name of the table to import to
+     * @param array $dates An array of two DateTime objects for the start and end of the period to retrieve data for
+     */
+    function importFiltonWeatherWebCSV(&$becFiltonWeather, $table, &$dates)
+    {
+        global $verbose;
+
+        // Does $table exist?
+        if (!$this->isTablePresent($table))
+        {
+            // Create the table
+            if (FALSE === $this->exec("CREATE TABLE $table (datetime DATETIME NOT NULL UNIQUE, sol_rad DECIMAL(10,3))"))
+            {
+                print("Failed to create table '$table'\n");
+                return FALSE;
+            }
+        }
+
+        // Table exists now!  Let's start processing...
+        $day = clone $dates[0];
+        $addDay = new DateInterval('P1D');
+        while ($day->getTimestamp() < $dates[1]->getTimestamp())
+        {
+            $csvString = $becFiltonWeather->getCSVData($day);
+            $filtonCSV = new FiltonCSV('web-string', $csvString);
+            if (FALSE === $filtonCSV)
+            {
+                print("Error: Failed to ready web CSV data for parsing\n");
+                return FALSE;
+            }
+            $importResult = $this->importFiltonCSV($filtonCSV, $table);
+            if ($importResult == FALSE)
+            {
+                return FALSE;
+            }
+
+            // Iterate to next day
+            $day->add($addDay);
         }
         // Success!
         return TRUE;

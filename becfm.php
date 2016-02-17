@@ -10,6 +10,7 @@
  *  - TODO: Update the list of BEC arrays from the master list on the Simtricity platform
  *  - TODO: Pull in any new generation data from the Simtricity platform
  *  - Pull in any new cloudiness data from forecast.io (TODO: or a better source?)
+ *  - Pull in any new weather data from the Filton weather station
  *  - TODO: Compare solar radiation and generation data and record where generation is not
  *    as high as we might expect given historical generation
  *  - TODO: Create an HTML report
@@ -54,6 +55,7 @@ define('TEMP_DIR', '/tmp');
 
 // BEC database stuff
 define('BEC_DB_CREATE_CENTRE_RAW_TABLE', 'create_centre_meteo_raw');
+define('BEC_DB_FILTON_WEATHER_TABLE', 'weather_filton');
 define('BEC_DB_FORECAST_IO_TABLE', 'weather_forecastio');
 define('CAN_USE_LOAD_DATA_INFILE', FALSE);
 
@@ -74,6 +76,7 @@ define('FORECAST_IO_LONG', -2.602);
 $verbose = FALSE;
 
 require 'becdb.php';
+require 'becfiltonweather.php';
 require 'becforecastio.php';
 require 'becgmail.php';
 require 'becsimtricity.php';
@@ -379,12 +382,39 @@ if (DEBUG)
 
 $becDB->updateForecastIOHistory($forecastIO);
 
+// Pull weather data from Filton weather station
+$filtonWeather = new BECFiltonWeather();
+// Read any *.csv files in a sub-directory of the current directory called filtonweather
+$dirString = 'filtonweather';
+$dir = dir($dirString);
+while($dir && $entry = $dir->read())
 {
+    $filename = $dirString . '/' . $entry;
+    if (strpos($entry, '.csv') == (strlen($entry) - 4) && is_file($filename))
     {
+        if ($becDB->importFiltonWeatherCSVFile(BEC_DB_FILTON_WEATHER_TABLE, $filename))
         {
+            // Add .imported to the filename so it won't be imported again
+            rename($filename, $filename . '.imported');
         }
     }
 }
+if ($dir) $dir->close();
+// Read any web weather from the latest date we already have (or earliest date possible) up to now
+$dates = $becDB->getDateTimeExtremesFromTable(BEC_DB_FILTON_WEATHER_TABLE);
+if ($dates === FALSE)
+{
+    // No data yet; read from the earliest date we can
+    $dates[0] = new DateTime(BECFiltonWeather::EARLIEST_WEB_DATE);
+}
+else
+{
+    // We add 30 minutes just in case the last time was 23:30 - we don't
+    // want to fetch the whole day again.
+    $dates[0] = $dates[1]->add(new DateInterval('PT30M'));
+}
+$dates[1] = new DateTime();
+$becDB->importFiltonWeatherWebCSV($filtonWeather, BEC_DB_FILTON_WEATHER_TABLE, $dates);
 
 // Compare solar radiation and generation readings
 
