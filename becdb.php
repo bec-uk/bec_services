@@ -372,6 +372,103 @@ class BECDB
     }
 
 
+    public function updateForecastIOHistory($forecastIO)
+    {
+        global $verbose;
+
+        /* If the table doesn't exist, create it and work out date range based on
+         * oldest records in any of our power tables.
+         */
+        $dateRange;
+        if (!($tablePresent = $this->isTablePresent(BEC_DB_FORECAST_IO_TABLE)) || $this->rowsInTable(BEC_DB_FORECAST_IO_TABLE) == 0)
+        {
+            // Create the table
+            if (!$tablePresent && FALSE === $this->exec('CREATE TABLE ' . BEC_DB_FORECAST_IO_TABLE . ' (datetime DATETIME NOT NULL UNIQUE, cloud_cover DECIMAL(10,3), visibility DECIMAL(10,3))'))
+            {
+                die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
+            }
+
+            // Find oldest record in any of our power tables as start of date range
+            $oldestDate = new DateTime();
+            $tableList = $this->fetchQuery('SHOW tables');
+            foreach ($tableList as $tableName)
+            {
+                if (substr($tableName[0], 0, 6) == 'power_')
+                {
+                    $dateRange = $this->getDateTimeExtremesFromTable($tableName[0]);
+                    if ($dateRange && $oldestDate->getTimestamp() > $dateRange[0]->getTimestamp())
+                    {
+                        $oldestDate = $dateRange[0];
+                    }
+                }
+            }
+            $dateRange[0] = $oldestDate;
+        }
+        else
+        {
+            // Start of date range is last entry
+            $dateRange = $this->getDateTimeExtremesFromTable(BEC_DB_FORECAST_IO_TABLE);
+            if (!$dateRange)
+            {
+                die('Error: Failed to retrieve earliest and latest recorded dates from table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
+            }
+            // Add 1 hour to the last stored time so we don't end up fetching the same day multiple times
+            $dateRange[0] = $dateRange[1]->add(new DateInterval('PT1H'));
+        }
+        $dateRange[1] = new DateTime();
+        // Set times to midday to ensure we get the right day regardless of GMT/BST transitions
+        $dateRange[0]->setTime(12, 0);
+        $dateRange[1]->setTime(12, 0);
+
+        // Add the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
+        $stmt = $this->prepare('INSERT INTO ' . BEC_DB_FORECAST_IO_TABLE . ' (datetime, cloud_cover, visibility) VALUES(:dt, :cc, :vis)
+                                ON DUPLICATE KEY UPDATE cloud_cover=:cc, visibility=:vis');
+        $stmt->bindParam(':dt', $dateTimeStr);
+        $stmt->bindParam(':cc', $cloudCover);
+        $stmt->bindParam(':vis', $visibility);
+
+        while ($dateRange[0]->getTimestamp() < $dateRange[1]->getTimestamp())
+        {
+            $weather = $forecastIO->getForecastLimitCalls(FORECAST_IO_LAT, FORECAST_IO_LONG, $dateRange[0], array());
+            if (!$weather)
+            {
+                return FALSE;
+            }
+            $hourly = $weather->getHourly()->getData();
+            if ($verbose > 0)
+            {
+                print("Forecast.io cloud cover & visibility:\n");
+            }
+            $aDay = new DateInterval('P1D');
+            foreach ($hourly as $hour)
+            {
+                $cloudCover = $hour->getCloudCover();
+                $visibility = $hour->getVisibility();
+                if ($cloudCover !== NULL || $visibility !== NULL)
+                {
+                    $hourDateTime = $hour->getTime();
+                    if ($verbose > 0)
+                    {
+                        print("\t" . $hourDateTime->format('d-m-Y H:i') . ': ' . $hour->getCloudCover() . ', ' . $hour->getVisibility() . "\n");
+                    }
+                    $dateTimeStr = $hourDateTime->format(DateTime::ISO8601);
+                    if (FALSE == $stmt->execute())
+                    {
+                        print("Error: Failed running insertion '$stmt->queryString'\n");
+                        if (DEBUG)
+                        {
+                            print_r($this->dbHandle->errorInfo());
+                        }
+                        return FALSE;
+                    }
+                }
+            }
+            $dateRange[0]->add($aDay);
+        }
+        return TRUE;
+    }
+
+
     /**
      * Make the half-hourly view of the Create Centre solar radiation data
      * @return boolean TRUE if the table exists or has been successfully created
@@ -392,6 +489,49 @@ class BECDB
             {
                 print("Error: Failed to create view 'sol_rad_create_centre' - " . $this->dbHandle->errorInfo() . "\n");
                 return FALSE;
+            }
+        }
+        return TRUE;
+    }
+
+
+    public function recordClearPeriods(&$clearPeriods)
+    {
+        global $verbose;
+
+        $table = 'clear_periods';
+        // Does $table exist?
+        if (!$this->isTablePresent($table))
+        {
+            // Create the table
+            if (FALSE === $this->exec("CREATE TABLE $table (date DATE NOT NULL, start TIME NOT NULL, end TIME NOT NULL, PRIMARY KEY(date, start))"))
+            {
+                print("Failed to create table '$table'\n");
+                return FALSE;
+            }
+        }
+
+        // Add the data
+        $stmt = $this->prepare("INSERT IGNORE INTO $table (date, start, end) VALUES(:date, :start, :end)");
+        $stmt->bindParam(':date', $dateStr);
+        $stmt->bindParam(':start', $startTimeStr);
+        $stmt->bindParam(':end', $endTimeStr);
+        foreach ($clearPeriods as $clear)
+        {
+            if ($clear['start'] != $clear['end'])
+            {
+                $dateStr = $clear['start']->format('Y-m-d');
+                $startTimeStr = $clear['start']->format('H:i');
+                $endTimeStr = $clear['end']->format('H:i');
+                if (FALSE == $stmt->execute())
+                {
+                    print("Error: Failed running insertion '$stmt->queryString'\n");
+                    if (DEBUG)
+                    {
+                        print_r($this->dbHandle->errorInfo());
+                    }
+                    return FALSE;
+                }
             }
         }
         return TRUE;

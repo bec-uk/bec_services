@@ -9,6 +9,7 @@
  *    associated gmail account
  *  - TODO: Update the list of BEC arrays from the master list on the Simtricity platform
  *  - TODO: Pull in any new generation data from the Simtricity platform
+ *  - Pull in any new cloudiness data from forecast.io (TODO: or a better source?)
  *  - TODO: Compare solar radiation and generation data and record where generation is not
  *    as high as we might expect given historical generation
  *  - TODO: Create an HTML report
@@ -42,7 +43,7 @@ if (DEBUG)
 define('BECFM_INI_FILENAME', 'becfm.ini');
 $iniFilename = BECFM_INI_FILENAME;
 
-// Stuff to the Google Gmail API
+// Stuff to the Google Gmail and Overcast APIs
 require __DIR__ . '/vendor/autoload.php';
 define('GMAIL_SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
                                            Google_Service_Gmail::GMAIL_MODIFY,
@@ -53,6 +54,7 @@ define('TEMP_DIR', '/tmp');
 
 // BEC database stuff
 define('BEC_DB_CREATE_CENTRE_RAW_TABLE', 'create_centre_meteo_raw');
+define('BEC_DB_FORECAST_IO_TABLE', 'weather_forecastio');
 define('CAN_USE_LOAD_DATA_INFILE', FALSE);
 
 // The email address Create Centre emails come from
@@ -64,10 +66,15 @@ $CREATE_CENTRE_SUBSTANCES = array('Relative Humidity' => 'rel_humidity',
                                    'Rainfall' => 'rain',
                                    'Solar Radiation' => 'sol_rad');
 
+// Forecast.io latitude and longitude to use
+define('FORECAST_IO_LAT', 51.459);
+define('FORECAST_IO_LONG', -2.602);
+
 // Verbose output?
 $verbose = FALSE;
 
 require 'becdb.php';
+require 'becforecastio.php';
 require 'becgmail.php';
 require 'becsimtricity.php';
 
@@ -276,7 +283,9 @@ $ini = array(// Database
               'gmail_username' => 'me',
               // Simtricity
               'simtricity_base_uri' => 'https://trial.simtricity.com',
-              'simtricity_token_path' => __DIR__ . '/simtricity_token.txt'
+              'simtricity_token_path' => __DIR__ . '/simtricity_token.txt',
+              // Forecast.io
+              'forecast_io_api_key_path' => __DIR__ . '/forecast_io_api_key.txt'
               );
 
 // Read configuration from ini file to override defaults
@@ -357,6 +366,25 @@ $simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
 // TODO: Move functions into becdb.php and pass in $simtricity so it can be used to retrieve data
 $simtricity->updateAllMeterReadings($becDB);
 $simtricity->updateAllMeterPowerTables($becDB);
+
+// Pull weather data from forecast.io
+$forecastIO = new BECForecastIO($ini['forecast_io_api_key_path']);
+
+if (DEBUG)
+{
+    $forecastIO->clearTimes($becDB);
+    $data = $becDB->getClearGenAndSolRadData();
+    exit(1); // FIXME: REMOVE
+}
+
+$becDB->updateForecastIOHistory($forecastIO);
+
+{
+    {
+        {
+        }
+    }
+}
 
 // Compare solar radiation and generation readings
 
