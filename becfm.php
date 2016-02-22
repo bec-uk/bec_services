@@ -392,20 +392,20 @@ if ($becDB->graphsEnabled)
             $interval = $fullDateRange[0]->diff($fullDateRange[1]);
             if ($interval->y > 1 || $interval->m > 1 || $interval->d > 28)
             {
-                // Show 28 days at a time
-                $lowerDate = $fullDateRange[0];
-                $upperDate = clone $lowerDate;
+                // Show 28 days at a time (going backwards)
+                $upperDate = clone $fullDateRange[1];
+                $lowerDate = clone $upperDate;
                 $fourWeeks = new DateInterval('P4W');
-                $upperDate->add($fourWeeks);
-                while ($lowerDate->getTimestamp() < $fullDateRange[1]->getTimestamp())
+                $lowerDate->sub($fourWeeks);
+                while ($lowerDate->getTimestamp() >= $fullDateRange[0]->getTimestamp())
                 {
                     $dateRange = array($lowerDate, $upperDate);
                     $becDB->createGraphImage("graphs/${niceMeterName}_" . $lowerDate->format('Ymd') . '.png',
                                              $powerTable,
                                              BEC_DB_CREATE_CENTRE_RAW_TABLE,
                                              $dateRange);
-                    $lowerDate->add($fourWeeks);
-                    $upperDate->add($fourWeeks);
+                    $lowerDate->sub($fourWeeks);
+                    $upperDate->sub($fourWeeks);
                 }
             }
             else
