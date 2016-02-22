@@ -1,5 +1,7 @@
 <?php
 
+require_once 'curlwrapper.php';
+
 // Array of serial numbers to flow tokens FIXME: Want to find these tokens using the API and put them into the meters table!
 static $METER_FLOW_TOKEN = array(// Hamilton House
                                  '14230571' => 'wqajeuesl7vn3ni',
@@ -43,77 +45,19 @@ class BECSimtricity
     }
 
 
-    /**
-     * Function to read data back from a given URL.  The expected and accepted
-     * content types should be specified.  Can optionally return the curl handle
-     * still open for further use by the caller.  If not requested the curl
-     * handle will be closed.
-     *
-     * @param string $url URL to read from
-     * @param array $contentAndAcceptTypes An array of strings specifying expected
-     *               and accepted content types
-     * @param resource $returnCurlHandle Optional.  If not NULL, return the open curl handle
-     */
-    protected function curlGetData($url, $contentAndAcceptTypes, &$returnCurlHandle = NULL)
-    {
-        global $verbose;
-
-        $curlHandle = curl_init($url);
-        curl_setopt($curlHandle, CURLOPT_HTTPHEADER, $contentAndAcceptTypes);
-        curl_setopt($curlHandle, CURLOPT_HEADER, FALSE);
-        curl_setopt($curlHandle, CURLOPT_FAILONERROR, TRUE);
-        // Default method is GET - no need to set
-        //curl_setopt($curlHandle, CURLOPT_HTTPGET, TRUE);
-        if (DEBUG)
-        {
-            // Show progress (may need a callback - delete if it does!)
-            curl_setopt($curlHandle, CURLOPT_NOPROGRESS, FALSE);
-        }
-        // Return the data fetched as the return value of curl_exec()
-        curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, TRUE);
-
-        if ($verbose > 0)
-        {
-            print("\nTrying URL: $url\n");
-        }
-        $data = curl_exec($curlHandle);
-        if ($errNo = curl_errno($curlHandle))
-        {
-            if ($verbose > 0)
-            {
-                print('Info: No data returned from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
-            }
-            $data = FALSE;
-        }
-        if (DEBUG)
-        {
-            print("Raw data:\n");
-            print_r($data);
-            print("\n");
-        }
-        if ($returnCurlHandle === NULL)
-        {
-            curl_close($curlHandle);
-        }
-        else
-        {
-            $returnCurlHandle = $curlHandle;
-        }
-        return $data;
-    }
 
 
     /**
-     * Use a curl handle to read power data from the gviz/flow API and return it in
-     * a prepared form we can use (stripping the Google Visualisation stuff so we just
+     * Return power data (from the gviz/flow API) and return it in a prepared
+     * form we can use (stripping the Google Visualisation stuff so we just
      * have DateTimes and power readings).
      *
      * @param string $url URL with full query
      * @return resource Array of DateTimes and power readings
      */
-    protected function curlGetPowerData($url)
+    protected function getPowerData($url)
     {
-        $gvizData = $this->curlGetData($url, array('Content-type: text/javascript', 'Accept: text/javascript, application/json'));
+        $gvizData = curlGetData($url, array('Content-type: text/javascript', 'Accept: text/javascript, application/json'));
 
         // Strip up to "rows":
         $cutOffset = strpos($gvizData, '"rows":[') + 8;
@@ -180,35 +124,24 @@ class BECSimtricity
 
 
     /**
-     * Use a curl handle to GET CSV data
-     *
-     * @param string $url The URL to GET from
-     * @return string The raw CSV data or FALSE if none/on failure
-     */
-    protected function curlGetCSV($url)
-    {
-        return $this->curlGetData($url, array('Content-type: text/csv', 'Accept: text/csv, application/json'));
-    }
-
-
-    /**
-     * Initialise a curl handle to GET JSON data
+     * HTTP GET JSON data.  This is specific to Simtricity as the data may be
+     * 'paged' and it will fetch and merge all pages.
      *
      * @param string $url The URL to GET from
      * @return object The object representing the decoded JSON data retreived
      */
-    protected function curlGetJSON($url, $supportPages = FALSE, $mergeArrayNames = NULL)
+    protected function getJSON($url, $supportPages = FALSE, $mergeArrayNames = NULL)
     {
         global $verbose;
 
-        $curlHandle = 'unset';
-        $data = $this->curlGetData($url, array('Content-type: application/json', 'Accept: application/json'), $curlHandle);
+        $curlHandle = NULL;
+        $data = curlGetData($url, array('Content-type: application/json', 'Accept: application/json'), $curlHandle);
 
         if (DEBUG)
         {
-            if ($curlHandle === 'unset')
+            if (!$curlHandle)
             {
-                die("Error: API failed - curl handle was not set\n");
+                die("Error: curlGetData() failed - curl handle was not set\n");
             }
         }
 
@@ -234,7 +167,8 @@ class BECSimtricity
                 $data = curl_exec($curlHandle);
                 if ($errNo = curl_errno($curlHandle))
                 {
-                    die('Error: Failed to get meter list page ' . ($pagesLeft + 1) . ' from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
+                    die('Error: Failed to get meter list page ' . ($pagesLeft + 1) .
+                        ' from Simtricity - error code ' . $errNo . "\n\t" . curl_error($curlHandle) . "\n");
                 }
                 $pageData = json_decode($data);
                 if ($pageData === NULL)
@@ -261,7 +195,14 @@ class BECSimtricity
         global $ini;
 
         $url = $ini['simtricity_base_uri'] . '/a/site?authkey=' . $this->getAccessToken();
-        $siteData = $this->curlGetJSON($url, TRUE, array('sites'));
+        $siteData = $this->getJSON($url, TRUE, array('sites'));
+
+        if (DEBUG)
+        {
+            print("Site list:\n");
+            print_r($siteData->sites);
+        }
+
         return $siteData->sites;
     }
 
@@ -274,7 +215,14 @@ class BECSimtricity
         global $ini;
 
         $url = $ini['simtricity_base_uri'] . '/a/meter?authkey=' . $this->getAccessToken();
-        $meterData = $this->curlGetJSON($url, TRUE, array('meters'));
+        $meterData = $this->getJSON($url, TRUE, array('meters'));
+
+        if (DEBUG)
+        {
+            print("Meter list:\n");
+            print_r($meterData->meters);
+        }
+
         return $meterData->meters;
     }
 
@@ -540,7 +488,7 @@ class BECSimtricity
         {
             print('Retrieving power data for meter ' . $meterInfo['code'] . ' with serial number ' . $meterInfo['serial'] . "\n");
         }
-        $data = $this->curlGetPowerData($url);
+        $data = $this->getPowerData($url);
         if ($data === FALSE)
         {
             if ($verbose > 0)
@@ -634,31 +582,28 @@ class BECSimtricity
             }
         }
 
-        // Use the Simtricity export API to get half-hourly data in CSV format
-        // FIXME: Can only get daily readings from the export Simtricity API; anything smaller
-        // is interpolated (although asking for ACTUAL readings we only get actual readings
-        // which are usually once a day, but could be less often).
+        /* Use the Simtricity export API to get half-hourly data in CSV format.
+         * These are the 'billing quality' meter readings and although we request
+         * half-hourly data, as we only want actual readings (rather than
+         * interpolated values which just average over the time-period without
+         * accounting for light levels), most meters can only provide us daily
+         * readings (sometimes less often, although CEPro say they will go back
+         * and retrieve missing data if it's not present due to communication
+         * failure).
+         */
         $url = $ini['simtricity_base_uri'] . '/a/export/meter/' . $meter['type'] . '/' .
-                $meter['serial'] . '?authkey=' . $this->getAccessToken();
+               $meter['serial'] . '?authkey=' . $this->getAccessToken();
         $url .= '&start=' . $startDate->format('Y-m-d\TH:i:s\Z');
         $now = new DateTime();
         $url .= '&end=' . $now->format('Y-m-d\TH:i:s\Z');
         $url .= '&resolution=PT30M';
         $url .= '&reading-type=ACTUAL';
 
-/*        $url = $ini['simtricity_base_uri'] . '/a/flow?token=mu4teeyxuvupbry';
-        $url .= '&start=' . $startDate->format('Y-m-d\TH:i:s\Z');
-        $now = new DateTime();
-        $url .= '&end=' . $now->format('Y-m-d\TH:i:s\Z');
-        $url .= '&resolution=PT30M';
-        //$url .= '&type=GENERATION';
-        //$url .= '&tqx=out:csv;reqId:0';
-*/
         if ($verbose > 0)
         {
             print('Retrieving reading data for meter ' . $meter['code'] . ' with serial number ' . $meter['serial'] . '.');
         }
-        $csvData = $this->curlGetCSV($url);
+        $csvData = curlGetCSV($url);
         if ($csvData === FALSE)
         {
             if ($verbose > 0)
@@ -734,7 +679,7 @@ class BECSimtricity
 
         foreach ($meterInfo as $meter)
         {
-            $tableName = 'dailyreading_' . $becDB->meterTableName($meter['code']);
+            $tableName = 'dailyreading_' . $becDB->meterDBName($meter['code']);
 
             if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
             {
@@ -764,7 +709,7 @@ class BECSimtricity
 
         foreach ($meterInfo as $meter)
         {
-            $tableName = 'power_' . $becDB->meterTableName($meter['code']);
+            $tableName = 'power_' . $becDB->meterDBName($meter['code']);
 
             if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
             {

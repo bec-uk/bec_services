@@ -5,10 +5,10 @@
  * Bristol Energy Cooperative Fault Monitoring PHP script
  *
  * In its default operating mode, this script will:
- *  - TODO: Pull in any new meteorological readings from the Create Centre roof from the
+ *  - Pull in any new meteorological readings from the Create Centre roof from the
  *    associated gmail account
- *  - TODO: Update the list of BEC arrays from the master list on the Simtricity platform
- *  - TODO: Pull in any new generation data from the Simtricity platform
+ *  - Update the list of BEC arrays from the master list on the Simtricity platform
+ *  - Pull in any new generation data from the Simtricity platform
  *  - Pull in any new cloudiness data from forecast.io (TODO: or a better source?)
  *  - Pull in any new weather data from the Filton weather station
  *  - TODO: Compare solar radiation and generation data and record where generation is not
@@ -27,8 +27,7 @@ error_reporting(E_ALL);
 // Only allow execution from a command line launch
 if (php_sapi_name() != 'cli')
 {
-    print("Error: This application must be run from a command line\n");
-    exit(1);
+    die("Error: This application must be run from a command line\n");
 }
 
 /******************************************************************************
@@ -44,7 +43,7 @@ if (DEBUG)
 define('BECFM_INI_FILENAME', 'becfm.ini');
 $iniFilename = BECFM_INI_FILENAME;
 
-// Stuff to the Google Gmail and Overcast APIs
+// Stuff to use the Google Gmail and Overcast APIs
 require __DIR__ . '/vendor/autoload.php';
 define('GMAIL_SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
                                            Google_Service_Gmail::GMAIL_MODIFY,
@@ -301,11 +300,6 @@ if (file_exists($iniFilename))
 $becDB = new BECDB($ini['database_type'], $ini['database_host'],
                    $ini['database_name'], $ini['database_username'],
                    $ini['database_user_password']);
-if (DEBUG)
-{
-    $dateTimes = $becDB->getDateTimeExtremesFromTable(BEC_DB_CREATE_CENTRE_RAW_TABLE);
-    print_r($dateTimes);
-}
 
 // Create Centre data: get the Gmail API client and construct the service object.
 $gmail = new BECGmailWrapper();
@@ -330,7 +324,7 @@ if ($deleteSimtricityMode)
     {
         foreach (array('dailyreading_', 'power_') as $prefix)
         {
-            $tableName = $prefix . $becDB->meterTableName($meter['code']);
+            $tableName = $prefix . $becDB->meterDBName($meter['code']);
             $res = $becDB->exec('DROP TABLE ' . $tableName);
             if ($res === FALSE)
             {
@@ -352,15 +346,6 @@ if (FALSE === $gmail->importNewMeteoData($becDB))
 
 // Update list of sites and meters from Simtricity
 $simtricity = new BECSimtricity();
-if (DEBUG)
-{
-    $meters = $simtricity->getListOfMeters();
-    print("\nMeter list:\n");
-    print_r($meters);
-    $sites = $simtricity->getListOfSites();
-    print("\nSite list:\n");
-    print_r($sites);
-}
 $simtricity->updateSiteDataFromSimtricty($becDB, 'sites');
 $simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
 
@@ -430,7 +415,7 @@ if ($becDB->graphsEnabled)
     }
     foreach ($becDB->getMeterInfoArray() as $meter)
     {
-        $niceMeterName = $becDB->meterTableName($meter['code']);
+        $niceMeterName = $becDB->meterDBName($meter['code']);
         $powerTable = 'power_' . $niceMeterName;
 
         // Skip if table has no data

@@ -29,11 +29,6 @@ class BECDB
             echo "Error: Failed to connect to $driver '$dbName' database";
             return NULL;
         }
-        if (DEBUG)
-        {
-            print_r($this->dbHandle);
-            print_r($this->dbHandle->errorInfo());
-        }
     }
 
 
@@ -308,7 +303,7 @@ class BECDB
         if (CAN_USE_LOAD_DATA_INFILE)
         {
             fclose($csvFile);
-            // Copy CSV file, merge date & time and stripping headers and trailing data type field
+            //TODO: Copy CSV file, merge date & time and stripping headers and trailing data type field
             processCreateCentreCSV($filename, $filename . '.import');
             $this->fetchQuery("");
 
@@ -344,7 +339,7 @@ class BECDB
             $stmt->bindParam(':r', $reading);
             while ($data = fgetcsv($csvFile))
             {
-                $dateTime = new DateTime(preg_replace('@([0-9]+)/([0-9]+)/([0-9]+)@', '$3-$2-$1', $data[0]) . "T" . $data[1]);
+                $dateTime = new DateTime(str_replace('/', '-', $data[0]) . "T" . $data[1]);
                 $dateTimeStr = $dateTime->format(DateTime::ISO8601);
                 //$dateTimeStr = $data[0] . "T" . $data[1] . "Z";
                 $reading = $data[2];
@@ -729,14 +724,15 @@ class BECDB
 
 
     /**
-     * Take a meter 'code' and make it nice to use in table names/filenames
+     * Take a meter 'code' and make it nice to use in table/column names or
+     * filenames.
      * We:
      *  - Replace '-' with '_'
      *  - Ensure all characters are lower-case
      * @param string $code Meter 'code' as defined by Simtricity
      * @return string Meter name to use in tables/filenames
      */
-    public function meterTableName($code)
+    public function meterDBName($code)
     {
         return str_replace('-', '_', strtolower($code));
     }
