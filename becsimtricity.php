@@ -299,19 +299,16 @@ class BECSimtricity
     public function updateSiteDataFromSimtricty(&$becDB, $siteTable)
     {
         $siteData = $this->getListOfSites();
-        // Ensure the table exists
-        if (!$becDB->isTablePresent($siteTable))
+        // Create the table if needed
+        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $siteTable
+                                            (name CHAR(64) NOT NULL UNIQUE,
+                                             code CHAR(16),
+                                             activity CHAR(16),
+                                             token CHAR(32) NOT NULL UNIQUE,
+                                             PRIMARY KEY(token))"))
         {
-            // Create the table
-            if (FALSE === $becDB->exec("CREATE TABLE $siteTable (name CHAR(64) NOT NULL UNIQUE,
-                                                                 code CHAR(16),
-                                                                 activity CHAR(16),
-                                                                 token CHAR(32) NOT NULL UNIQUE,
-                                                                 PRIMARY KEY(token))"))
-            {
-                print("Failed to create table '$siteTable'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$siteTable'\n");
+            return FALSE;
         }
 
         // Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
@@ -357,22 +354,20 @@ class BECSimtricity
 
         $meterData = $this->getListOfMeters();
         // Ensure the table exists
-        if (!$becDB->isTablePresent($meterTable))
+        // Create the table if needed
+        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $meterTable
+                                            (serial CHAR(32) NOT NULL UNIQUE,
+                                             token CHAR(32) NOT NULL UNIQUE,
+                                             siteToken CHAR(32) NOT NULL,
+                                             code CHAR(16),
+                                             model CHAR(32),
+                                             spec CHAR(32),
+                                             type CHAR(32) NOT NULL,
+                                             startDate DATETIME,
+                                             PRIMARY KEY(serial))"))
         {
-            // Create the table
-            if (FALSE === $becDB->exec("CREATE TABLE $meterTable (serial CHAR(32) NOT NULL UNIQUE,
-                                                                  token CHAR(32) NOT NULL UNIQUE,
-                                                                  siteToken CHAR(32) NOT NULL,
-                                                                  code CHAR(16),
-                                                                  model CHAR(32),
-                                                                  spec CHAR(32),
-                                                                  type CHAR(32) NOT NULL,
-                                                                  startDate DATETIME,
-                                                                  PRIMARY KEY(serial))"))
-            {
-                print("Failed to create table '$meterTable'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$meterTable'\n");
+            return FALSE;
         }
 
         // First get the site name to site token mappings
@@ -456,16 +451,13 @@ class BECSimtricity
     {
         global $verbose, $ini, $METER_FLOW_TOKEN;
 
-        // Ensure the table exists
-        if (!$becDB->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
+                                            (datetime DATETIME NOT NULL,
+                                             power FLOAT)"))
         {
-            // Create the table
-            if (FALSE === $becDB->exec("CREATE TABLE $table (datetime DATETIME NOT NULL,
-                                                             power FLOAT)"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         // Lookup the flow token for this meter (FIXME: Not yet in the database as don't know how to retrieve from the API!)
@@ -569,17 +561,14 @@ class BECSimtricity
     {
         global $verbose, $ini;
 
-        // Ensure the table exists
-        if (!$becDB->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
+                                            (datetime DATETIME NOT NULL,
+                                             readingImport FLOAT,
+                                             readingExport FLOAT)"))
         {
-            // Create the table
-            if (FALSE === $becDB->exec("CREATE TABLE $table (datetime DATETIME NOT NULL,
-                                                             readingImport FLOAT,
-                                                             readingExport FLOAT)"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         /* Use the Simtricity export API to get half-hourly data in CSV format.

@@ -240,15 +240,11 @@ class BECDB
      */
     function importCreateCentreCSV($table, $filename)
     {
-        // Does $table exist?
-        if (!$this->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table (datetime DATETIME NOT NULL UNIQUE)"))
         {
-            // Create the table
-            if (FALSE === $this->exec("CREATE TABLE $table (datetime DATETIME NOT NULL UNIQUE)"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         // Table exists now!  See what we have in the CSV file...
@@ -445,15 +441,13 @@ class BECDB
     {
         global $verbose;
 
-        // Does $table exist?
-        if (!$this->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
+                                           (datetime DATETIME NOT NULL UNIQUE,
+                                            sol_rad DECIMAL(10,3))"))
         {
-            // Create the table
-            if (FALSE === $this->exec("CREATE TABLE $table (datetime DATETIME NOT NULL UNIQUE, sol_rad DECIMAL(10,3))"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         // Table exists now!  Let's start processing...
@@ -509,15 +503,13 @@ class BECDB
     {
         global $verbose;
 
-        // Does $table exist?
-        if (!$this->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
+                                           (datetime DATETIME NOT NULL UNIQUE,
+                                            sol_rad DECIMAL(10,3))"))
         {
-            // Create the table
-            if (FALSE === $this->exec("CREATE TABLE $table (datetime DATETIME NOT NULL UNIQUE, sol_rad DECIMAL(10,3))"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         // Table exists now!  Let's start processing...
@@ -554,10 +546,14 @@ class BECDB
          * oldest records in any of our power tables.
          */
         $dateRange;
-        if (!($tablePresent = $this->isTablePresent(BEC_DB_FORECAST_IO_TABLE)) || $this->rowsInTable(BEC_DB_FORECAST_IO_TABLE) == 0)
+        if (!($tablePresent = $this->isTablePresent(BEC_DB_FORECAST_IO_TABLE)) ||
+            $this->rowsInTable(BEC_DB_FORECAST_IO_TABLE) == 0)
         {
-            // Create the table
-            if (!$tablePresent && FALSE === $this->exec('CREATE TABLE ' . BEC_DB_FORECAST_IO_TABLE . ' (datetime DATETIME NOT NULL UNIQUE, cloud_cover DECIMAL(10,3), visibility DECIMAL(10,3))'))
+            // Create the table if needed
+            if (FALSE === $this->exec('CREATE TABLE IF NOT EXISTS ' . BEC_DB_FORECAST_IO_TABLE .
+                                             ' (datetime DATETIME NOT NULL UNIQUE,
+                                                cloud_cover DECIMAL(10,3),
+                                                visibility DECIMAL(10,3))'))
             {
                 die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
             }
@@ -674,15 +670,15 @@ class BECDB
         global $verbose;
 
         $table = 'clear_periods';
-        // Does $table exist?
-        if (!$this->isTablePresent($table))
+        // Create the table if needed
+        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
+                                           (date DATE NOT NULL,
+                                            start TIME NOT NULL,
+                                            end TIME NOT NULL,
+                                            PRIMARY KEY(date, start))"))
         {
-            // Create the table
-            if (FALSE === $this->exec("CREATE TABLE $table (date DATE NOT NULL, start TIME NOT NULL, end TIME NOT NULL, PRIMARY KEY(date, start))"))
-            {
-                print("Failed to create table '$table'\n");
-                return FALSE;
-            }
+            print("Failed to create table '$table'\n");
+            return FALSE;
         }
 
         // Add the data
