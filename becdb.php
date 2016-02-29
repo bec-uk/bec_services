@@ -133,10 +133,11 @@ class BECDB
     /**
      * Retrieve the earliest & latest DateTimes from the 'datetime' field in a named SQL table
      * @param string $table
+     * @param string Optionally require the column named $popColumn not to be NULL for all dates considered
      * @return DateTime[2] An array with the earliest and latest DateTimes in
      *             the given table, or FALSE on failure/no entries
      */
-    function getDateTimeExtremesFromTable($table)
+    function getDateTimeExtremesFromTable($table, $popColumn = NULL)
     {
         if (!$this->isTablePresent($table))
         {
@@ -158,8 +159,13 @@ class BECDB
         if ($result != FALSE && FALSE !== array_search('datetime', $fieldName))
         {
             $result = array();
-            $result[0] = $this->fetchQuery('SELECT MIN(datetime) FROM ' . $table);
-            $result[1] = $this->fetchQuery('SELECT MAX(datetime) FROM ' . $table);
+            $whereClause = '';
+            if ($popColumn)
+            {
+                $whereClause = " WHERE $popColumn IS NOT NULL";
+            }
+            $result[0] = $this->fetchQuery('SELECT MIN(datetime) FROM ' . $table . $whereClause);
+            $result[1] = $this->fetchQuery('SELECT MAX(datetime) FROM ' . $table . $whereClause);
             if (DEBUG)
             {
                 print_r($result);
@@ -167,7 +173,7 @@ class BECDB
             if (FALSE === $result[0] || NULL === $result[0][0][0] ||
                 FALSE === $result[1] || NULL === $result[1][0][0])
             {
-                print("Error: Failed to retrieve earliest and latest datetimes from table '$table'\n");
+                print("Error: Failed to retrieve earliest and latest datetimes from table '$table'$whereClause\n");
                 return FALSE;
             }
 
@@ -182,12 +188,18 @@ class BECDB
 
     /**
      * Function which returns the number of rows in the table
-     *
+     * @param string Name of table
+     * @param string Optional name of column in which data must not be NULL (populated column)
      * @return Number of rows in the table (0 if doesn't exist)
      */
-    public function rowsInTable($table)
+    public function rowsInTable($table, $popColumn = NULL)
     {
-        $rowCount = $this->fetchQuery("SELECT COUNT(1) FROM $table");
+        $whereClause = '';
+        if ($popColumn)
+        {
+            $whereClause = " WHERE $popColumn IS NOT NULL";
+        }
+        $rowCount = $this->fetchQuery("SELECT COUNT(1) FROM $table$whereClause");
         if (count($rowCount) > 0)
             return $rowCount[0][0];
         else
@@ -744,7 +756,7 @@ class BECDB
      * @param array $dateRange An optional array of two DateTime objects to limit
      *                         the range of data used
      */
-    public function createGraphImage($imageFilename, $powerTable, $solRadTable, &$dateRange = NULL)
+    public function createGraphImage($imageFilename, $powerTable, $powerColumn, $solRadTable, &$dateRange = NULL)
     {
         global $verbose;
 
@@ -762,7 +774,7 @@ class BECDB
             print("Generating power graph in file $imageFilename\n");
         }
 
-        $sql = "SELECT $powerTable.datetime, power, sol_rad
+        $sql = "SELECT $powerTable.datetime, $powerTable.$powerColumn, sol_rad
                 FROM $solRadTable INNER JOIN $powerTable
                 ON $powerTable.datetime = $solRadTable.datetime";
 
@@ -779,7 +791,7 @@ class BECDB
         $data = $this->fetchQuery($sql);
 
         $maxSolRad = $this->fetchQuery("SELECT MAX(sol_rad) FROM $solRadTable" . $whereClause);
-        $maxPower = $this->fetchQuery("SELECT MAX(power) FROM $powerTable" . $whereClausePower);
+        $maxPower = $this->fetchQuery("SELECT MAX($powerColumn) FROM $powerTable" . $whereClausePower);
         if ($maxPower[0][0] == 0)
         {
             // If there was never any power, divide by 1 rather than 0 when scaling!
@@ -799,7 +811,7 @@ class BECDB
         // or there's SVGGraph which is LGPL).
         foreach ($data as $entry)
         {
-            $powerData[$entry['datetime']] = $entry['power'] / $maxPower[0][0] * 100;
+            $powerData[$entry['datetime']] = $entry[$powerColumn] / $maxPower[0][0] * 100;
             $solRadData[$entry['datetime']] = $entry['sol_rad'] / $maxSolRad[0][0] * 100;
         }
         // Free up memory (maybe!)

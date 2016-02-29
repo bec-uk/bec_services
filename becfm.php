@@ -353,7 +353,7 @@ $simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
 // Pull reading & power data for all Simtricity meters
 // TODO: Move functions into becdb.php and pass in $simtricity so it can be used to retrieve data
 $simtricity->updateAllMeterReadings($becDB);
-$simtricity->updateAllMeterPowerTables($becDB);
+$simtricity->updateAllMeterPowerData($becDB);
 
 // Pull weather data from forecast.io
 $forecastIO = new BECForecastIO($ini['forecast_io_api_key_path']);
@@ -415,20 +415,20 @@ if ($becDB->graphsEnabled)
     }
     foreach ($becDB->getMeterInfoArray() as $meter)
     {
-        $niceMeterName = $becDB->meterDBName($meter['code']);
-        $powerTable = 'power_' . $niceMeterName;
+        $powerTable = 'power';
+        $column = $becDB->meterDBName($meter['code']);
 
         // Skip if table has no data
-        if (!$becDB->rowsInTable($powerTable))
+        if (!$becDB->rowsInTable($powerTable, $column))
         {
             if ($verbose > 0)
             {
-                print("Skipping graph for table $powerTable as it has no data\n");
+                print("Skipping graph for meter $column as it has no data\n");
             }
             continue;
         }
 
-        $fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable);
+        $fullDateRange = $becDB->getDateTimeExtremesFromTable($powerTable, $column);
 
         if ($fullDateRange)
         {
@@ -443,8 +443,8 @@ if ($becDB->graphsEnabled)
                 while ($lowerDate->getTimestamp() >= $fullDateRange[0]->getTimestamp())
                 {
                     $dateRange = array($lowerDate, $upperDate);
-                    $becDB->createGraphImage("graphs/${niceMeterName}_" . $lowerDate->format('Ymd') . '.png',
-                                             $powerTable,
+                    $becDB->createGraphImage("graphs/${column}_" . $lowerDate->format('Ymd') . '.png',
+                                             $powerTable, $column,
                                              BEC_DB_CREATE_CENTRE_RAW_TABLE,
                                              $dateRange);
                     $lowerDate->sub($fourWeeks);
@@ -454,8 +454,8 @@ if ($becDB->graphsEnabled)
             else
             {
                 // Show all
-                $becDB->createGraphImage("graphs/$niceMeterName" . '.png',
-                                         $powerTable,
+                $becDB->createGraphImage("graphs/$column" . '.png',
+                                         $powerTable, $column,
                                          BEC_DB_CREATE_CENTRE_RAW_TABLE,
                                          $fullDateRange);
             }

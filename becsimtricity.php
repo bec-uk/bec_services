@@ -460,6 +460,23 @@ class BECSimtricity
             return FALSE;
         }
 
+        // Add a column for this meter if needed
+        $column = $becDB->meterDBName($meterInfo['code']);
+        if (!$becDB->tableHasColumn($table, $column))
+        {
+            $result = $becDB->exec("ALTER TABLE $table ADD COLUMN $column DECIMAL(10,3)");
+            if (FALSE === $result)
+            {
+                $err = $becDB->dbHandle->errorInfo();
+                if (DEBUG)
+                {
+                    print_r($err);
+                }
+                print("Error: Failed to add column $column to table $table\n");
+                return NULL;
+            }
+        }
+
         // Lookup the flow token for this meter (FIXME: Not yet in the database as don't know how to retrieve from the API!)
         $flowToken = $METER_FLOW_TOKEN[$meterInfo['serial']];
         if (strlen($flowToken) < 2)
@@ -491,14 +508,15 @@ class BECSimtricity
         }
 
         // Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
-        $stmt = $becDB->prepare("INSERT IGNORE INTO $table (datetime, power)
-                                            VALUES(:datetime, :power)");
+        $stmt = $becDB->prepare("INSERT INTO $table (datetime, $column)
+                                            VALUES(:datetime, :power)
+                                            ON DUPLICATE KEY UPDATE $column=:power");
         $stmt->bindParam(':datetime', $dateTimeStr);
         $stmt->bindParam(':power', $power);
 
         if ($verbose > 0)
         {
-            print("Updating table $table.");
+            print("Updating table $table for meter " . $meterInfo['code'] . '.');
         }
 
         foreach ($data as $entry)
@@ -690,7 +708,7 @@ class BECSimtricity
      *
      * @param resource $becDB The BEC database handle
      */
-    public function updateAllMeterPowerTables(&$becDB)
+    public function updateAllMeterPowerData(&$becDB)
     {
         global $verbose;
 
@@ -698,9 +716,14 @@ class BECSimtricity
 
         foreach ($meterInfo as $meter)
         {
-            $tableName = 'power_' . $becDB->meterDBName($meter['code']);
+            // All power values put into same table with different columns for different meters
+            $tableName = 'power';
+            $column = $becDB->meterDBName($meter['code']);
 
-            if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
+            if ($becDB->isTablePresent($tableName) &&
+                $becDB->tableHasColumn($tableName, $column) &&
+                $becDB->rowsInTable($tableName, $column) > 0 &&
+                ($date = $becDB->getDateTimeExtremesFromTable($tableName, $column)))
             {
                 $startDate = $date[1];
                 $now = new DateTime();
@@ -709,7 +732,7 @@ class BECSimtricity
                 {
                     if ($verbose > 0)
                     {
-                        print("Table $tableName already up to date\n");
+                        print("Table $tableName already up to date for meter " . $meter['code'] . "\n");
                     }
                     continue;
                 }
