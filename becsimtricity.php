@@ -364,7 +364,8 @@ class BECSimtricity
                                              spec CHAR(32),
                                              type CHAR(32) NOT NULL,
                                              startDate DATETIME,
-                                             PRIMARY KEY(serial))"))
+                                             PRIMARY KEY(serial),
+                                             CONSTRAINT fk_site FOREIGN KEY(siteToken) REFERENCES sites(token))"))
         {
             print("Failed to create table '$meterTable'\n");
             return FALSE;
@@ -453,8 +454,8 @@ class BECSimtricity
 
         // Create the table if needed
         if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
-                                            (datetime DATETIME NOT NULL,
-                                             power FLOAT)"))
+                                            (datetime DATETIME NOT NULL UNIQUE,
+                                             PRIMARY KEY(datetime))"))
         {
             print("Failed to create table '$table'\n");
             return FALSE;
@@ -581,9 +582,10 @@ class BECSimtricity
 
         // Create the table if needed
         if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
-                                            (datetime DATETIME NOT NULL,
+                                            (datetime DATETIME NOT NULL UNIQUE,
                                              readingImport FLOAT,
-                                             readingExport FLOAT)"))
+                                             readingExport FLOAT,
+                                             PRIMARY KEY(datetime))"))
         {
             print("Failed to create table '$table'\n");
             return FALSE;

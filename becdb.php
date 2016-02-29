@@ -253,7 +253,9 @@ class BECDB
     function importCreateCentreCSV($table, $filename)
     {
         // Create the table if needed
-        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table (datetime DATETIME NOT NULL UNIQUE)"))
+        if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
+                                        (datetime DATETIME NOT NULL UNIQUE,
+                                         PRIMARY KEY(datetime))"))
         {
             print("Failed to create table '$table'\n");
             return FALSE;
@@ -456,7 +458,8 @@ class BECDB
         // Create the table if needed
         if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
                                            (datetime DATETIME NOT NULL UNIQUE,
-                                            sol_rad DECIMAL(10,3))"))
+                                            sol_rad DECIMAL(10,3),
+                                            PRIMARY KEY(datetime))"))
         {
             print("Failed to create table '$table'\n");
             return FALSE;
@@ -518,7 +521,8 @@ class BECDB
         // Create the table if needed
         if (FALSE === $this->exec("CREATE TABLE IF NOT EXISTS $table
                                            (datetime DATETIME NOT NULL UNIQUE,
-                                            sol_rad DECIMAL(10,3))"))
+                                            sol_rad DECIMAL(10,3),
+                                            PRIMARY KEY(datetime))"))
         {
             print("Failed to create table '$table'\n");
             return FALSE;
@@ -565,7 +569,8 @@ class BECDB
             if (FALSE === $this->exec('CREATE TABLE IF NOT EXISTS ' . BEC_DB_FORECAST_IO_TABLE .
                                              ' (datetime DATETIME NOT NULL UNIQUE,
                                                 cloud_cover DECIMAL(10,3),
-                                                visibility DECIMAL(10,3))'))
+                                                visibility DECIMAL(10,3),
+                                                PRIMARY KEY(datetime))'))
             {
                 die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
             }
