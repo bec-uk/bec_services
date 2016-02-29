@@ -418,7 +418,7 @@ class BECSimtricity
             $spec = $meter->spec;
             $type = $meter->type;
             $startDate = new DateTime();
-            $startDate->setTimestamp($meter->start);
+            $startDate->setTimestamp($meter->start / 1000);
             $dateTimeStr = $startDate->format(DateTime::ISO8601);
             if (FALSE == $stmt->execute())
             {
