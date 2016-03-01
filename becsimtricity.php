@@ -730,7 +730,8 @@ class BECSimtricity
                 $startDate = $date[1];
                 $now = new DateTime();
                 // Skip if latest time is already less than 23 hours ago
-                if ($now->diff($startDate)->h < 23)
+                $secs = $now->getTimestamp() - $startDate->getTimestamp();
+                if ($secs / 60 / 60 < 23)
                 {
                     if ($verbose > 0)
                     {
