@@ -380,7 +380,6 @@ class BECSimtricity
 
         // Add the data, ignore if already present (Warning: INSERT IGNORE is MySQL-specific)
         // TODO: Do we want to support changes to the meter 'code'?
-        // FIXME: start is not a start date...initial reading maybe?...why so big?...date in different format (not a timestamp)?
         $stmt = $becDB->prepare("INSERT IGNORE INTO $meterTable (serial, token, siteToken, code, model, spec, type, startDate)
                                             VALUES(:serial, :token, :siteToken, :code, :model, :spec, :type, :startDate)");
         $stmt->bindParam(':serial', $serial);
@@ -417,6 +416,7 @@ class BECSimtricity
             $model = $meter->model;
             $spec = $meter->spec;
             $type = $meter->type;
+            // The start field is a timestamp in ms, but PHP uses timestamps based in seconds
             $startDate = new DateTime();
             $startDate->setTimestamp($meter->start / 1000);
             $dateTimeStr = $startDate->format(DateTime::ISO8601);

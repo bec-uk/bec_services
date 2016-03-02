@@ -102,6 +102,8 @@ function expandHomeDirectory($path)
 $helpString = "Usage: php $argv[0] <options>\n" .
               'where <options> are:' . "\n" .
               '  -h | --help       Display this usage message' . "\n" .
+              '  -i <filename | --ini-file <filename>' . "\n" .
+              '                    Override location of the ini file to use' . "\n" .
               '  -l                List arrays already in BEC database and exit' . "\n" .
               '  -u                Update array list from Simtricity and exit' . "\n" .
               '  -v                Verbose output' . "\n" .
@@ -237,6 +239,8 @@ if ($argc > 1)
 
     if (optionUsed('l', &$options, &$parameters))
     {
+        // FIXME: We don't yet support the concept of 'arrays'
+        die('Error: Simtricity & these scripts do not yet support the concept of arrays; everything is done by meter' . "\n");
         // Just list the known arrays in the database and exit
         listArrays();
         exit(0);
@@ -244,6 +248,8 @@ if ($argc > 1)
 
     if (optionUsed('u', $options, &$parameters))
     {
+        // FIXME: We don't yet support the concept of 'arrays'
+        die('Error: Simtricity & these scripts do not yet support the concept of arrays; everything is done by meter' . "\n");
         // Just update the arrays in the database from Simtricity and exit
         print("Checking for new arrays from Simtricity platform...\n");
 
@@ -367,14 +373,6 @@ $simtricity->updateAllMeterPowerData($becDB);
 
 // Pull weather data from forecast.io
 $forecastIO = new BECForecastIO($ini['forecast_io_api_key_path']);
-
-if (DEBUG)
-{
-    $forecastIO->clearTimes($becDB);
-    $data = $becDB->getClearGenAndSolRadData();
-    exit(1); // FIXME: REMOVE
-}
-
 $becDB->updateForecastIOHistory($forecastIO);
 
 // Pull weather data from Filton weather station

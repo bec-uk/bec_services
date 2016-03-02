@@ -97,7 +97,6 @@ function curlPostData($url, $postFields, $contentAndAcceptTypes, &$returnCurlHan
     curl_setopt($curlHandle, CURLOPT_HTTPGET, FALSE);
     curl_setopt($curlHandle, CURLOPT_FRESH_CONNECT, TRUE);
     curl_setopt($curlHandle, CURLOPT_FORBID_REUSE, TRUE);
-    $query = http_build_query($postFields); //FIXME: Remove
     curl_setopt($curlHandle, CURLOPT_POSTFIELDS, http_build_query($postFields));
     if (DEBUG)
     {
