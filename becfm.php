@@ -106,8 +106,8 @@ $helpString = "Usage: php $argv[0] <options>\n" .
               '  -u                Update array list from Simtricity and exit' . "\n" .
               '  -v                Verbose output' . "\n" .
               '  --array <array>   Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
-              '  --delete-create-centre-raw-table' . "\n" .
-              '                    Delete the Create Centre meteo raw data table and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
+              '  --delete-create-centre' . "\n" .
+              '                    Delete Create Centre data from the database and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
               '  --delete-simtricity' . "\n" .
               '                    Delete Simtricity data from the database and exit' . "\n" .
               '  --html-report-dir <path>' . "\n" .
@@ -137,7 +137,7 @@ if ($argc > 1)
                          'u' => '',
                          'v' => 'verbose',
                          'array:',
-                         'delete-create-centre-raw-table',
+                         'delete-create-centre',
                          'delete-all-simtricity',
                          'html-report-dir:',
                          'no-html-report',
@@ -254,7 +254,7 @@ if ($argc > 1)
         exit(0);
     }
 
-    if (optionUsed('delete-create-centre-raw-table', $options, $parameters))
+    if (optionUsed('delete-create-centre', $options, $parameters))
     {
         $deleteCCRMode = TRUE;
     }
