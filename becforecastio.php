@@ -146,9 +146,6 @@ class BECForecastIO extends VertigoLabs\Overcast\Overcast
 
         // Record all clear periods in a table
         $becDB->recordClearPeriods($clearPeriod);
-
-
-
     }
 
 
@@ -166,7 +163,7 @@ class BECForecastIO extends VertigoLabs\Overcast\Overcast
         global $verbose;
 
         // Default parameters
-        $params = array('units' => 'si', 'exclude' => 'currently,minutely,daily,alerts');
+        $params = array('units' => 'si', 'exclude' => 'currently,minutely,alerts');
         $params = array_merge($params, $parameters);
 
         if ($this->getApiCalls() > 999)

@@ -565,16 +565,26 @@ class BECDB
         if (!($tablePresent = $this->isTablePresent(BEC_DB_FORECAST_IO_TABLE)) ||
             $this->rowsInTable(BEC_DB_FORECAST_IO_TABLE) == 0)
         {
-            // Create the table if needed
+            // Create the tables if needed
             if (FALSE === $this->exec('CREATE TABLE IF NOT EXISTS ' . BEC_DB_FORECAST_IO_TABLE .
                                              ' (datetime DATETIME NOT NULL UNIQUE,
                                                 cloud_cover DECIMAL(10,3),
                                                 visibility DECIMAL(10,3),
+                                                summary VARCHAR(255),
+                                                icon VARCHAR(40),
                                                 PRIMARY KEY(datetime))'))
             {
                 die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
             }
+            if (FALSE === $this->exec('CREATE TABLE IF NOT EXISTS ' . BEC_DB_FORECAST_IO_TABLE . '_daily' .
+                                             ' (date DATE NOT NULL UNIQUE,
+                                                cloud_cover DECIMAL(10,3),
+                                                visibility DECIMAL(10,3),
+                                                summary VARCHAR(255),
+                                                icon VARCHAR(40),
+                                                PRIMARY KEY(date))'))
             {
+                die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
             }
 
             // Find oldest record in the power table as start of date range
@@ -597,11 +607,21 @@ class BECDB
         $dateRange[1]->setTime(12, 0);
 
         // Add the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
-        $stmt = $this->prepare('INSERT INTO ' . BEC_DB_FORECAST_IO_TABLE . ' (datetime, cloud_cover, visibility) VALUES(:dt, :cc, :vis)
-                                ON DUPLICATE KEY UPDATE cloud_cover=:cc, visibility=:vis');
-        $stmt->bindParam(':dt', $dateTimeStr);
-        $stmt->bindParam(':cc', $cloudCover);
-        $stmt->bindParam(':vis', $visibility);
+        $stmtHourly = $this->prepare('INSERT INTO ' . BEC_DB_FORECAST_IO_TABLE . ' (datetime, cloud_cover, visibility, summary, icon) VALUES(:dt, :cc, :vis, :sum, :icon)
+                                      ON DUPLICATE KEY UPDATE cloud_cover=:cc, visibility=:vis, summary=:sum, icon=:icon');
+        $stmtHourly->bindParam(':dt', $dateTimeStr);
+        $stmtHourly->bindParam(':cc', $cloudCover);
+        $stmtHourly->bindParam(':vis', $visibility);
+        $stmtHourly->bindParam(':sum', $summaryText);
+        $stmtHourly->bindParam(':icon', $iconName);
+
+        $stmtDaily = $this->prepare('INSERT INTO ' . BEC_DB_FORECAST_IO_TABLE . '_daily (date, cloud_cover, visibility, summary, icon) VALUES(:date, :cc, :vis, :sum, :icon)
+                                      ON DUPLICATE KEY UPDATE cloud_cover=:cc, visibility=:vis, summary=:sum, icon=:icon');
+        $stmtDaily->bindParam(':date', $dateStr);
+        $stmtDaily->bindParam(':cc', $cloudCover);
+        $stmtDaily->bindParam(':vis', $visibility);
+        $stmtDaily->bindParam(':sum', $summaryText);
+        $stmtDaily->bindParam(':icon', $iconName);
 
         while ($dateRange[0]->getTimestamp() < $dateRange[1]->getTimestamp())
         {
@@ -620,17 +640,19 @@ class BECDB
             {
                 $cloudCover = $hour->getCloudCover();
                 $visibility = $hour->getVisibility();
-                if ($cloudCover !== NULL || $visibility !== NULL)
+                $summaryText = $hour->getSummary();
+                $iconName = $hour->getIcon();
+                if ($summaryText !== NULL | $iconName !== NULL || $cloudCover !== NULL || $visibility !== NULL)
                 {
                     $hourDateTime = $hour->getTime();
                     if ($verbose > 0)
                     {
-                        print("\t" . $hourDateTime->format('d-m-Y H:i') . ': ' . $hour->getCloudCover() . ', ' . $hour->getVisibility() . "\n");
+                        print("\t" . $hourDateTime->format('d-m-Y H:i') . ": $summaryText, $iconName, $cloudCover, $visibility\n");
                     }
                     $dateTimeStr = $hourDateTime->format(DateTime::ISO8601);
-                    if (FALSE == $stmt->execute())
+                    if (FALSE == $stmtHourly->execute())
                     {
-                        print("Error: Failed running insertion '$stmt->queryString'\n");
+                        print("Error: Failed running insertion '$stmtHourly->queryString'\n");
                         if (DEBUG)
                         {
                             print_r($this->dbHandle->errorInfo());
@@ -639,6 +661,33 @@ class BECDB
                     }
                 }
             }
+
+            $daily = $weather->getDaily()->getData();
+            foreach ($daily as $day)
+            {
+                $cloudCover = $day->getCloudCover();
+                $visibility = $day->getVisibility();
+                $summaryText = $day->getSummary();
+                $iconName = $day->getIcon();
+                if ($summaryText !== NULL | $iconName !== NULL || $cloudCover !== NULL || $visibility !== NULL)
+                {
+                    if ($verbose > 0)
+                    {
+                        print("\t" . $dateRange[0]->format('d-m-Y') . ": $summaryText, $iconName, $cloudCover, $visibility\n");
+                    }
+                    $dateStr = $dateRange[0]->format('Y-m-d');
+                    if (FALSE == $stmtDaily->execute())
+                    {
+                        print("Error: Failed running insertion '$stmtDaily->queryString'\n");
+                        if (DEBUG)
+                        {
+                            print_r($this->dbHandle->errorInfo());
+                        }
+                        return FALSE;
+                    }
+                }
+            }
+
             $dateRange[0]->add($aDay);
         }
         return TRUE;
