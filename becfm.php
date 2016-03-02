@@ -108,8 +108,8 @@ $helpString = "Usage: php $argv[0] <options>\n" .
               '  --array <array>   Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
               '  --delete-create-centre-raw-table' . "\n" .
               '                    Delete the Create Centre meteo raw data table and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
-              '  --delete-all-simtricity-raw-tables' . "\n" .
-              '                    Delete all of the Simtricity meter reading raw data tables and exit' . "\n" .
+              '  --delete-simtricity' . "\n" .
+              '                    Delete Simtricity data from the database and exit' . "\n" .
               '  --html-report-dir <path>' . "\n" .
               '                    Location to write the HTML report (default is /var/www/bec-gen-report)' . "\n" .
               '  --no-html-report  Supress creation of HTML report (default is to create an HTML report a web browser can read)' . "\n" .
@@ -138,7 +138,7 @@ if ($argc > 1)
                          'v' => 'verbose',
                          'array:',
                          'delete-create-centre-raw-table',
-                         'delete-all-simtricity-raw-tables',
+                         'delete-all-simtricity',
                          'html-report-dir:',
                          'no-html-report',
                          'run-read-only',
@@ -259,11 +259,11 @@ if ($argc > 1)
         $deleteCCRMode = TRUE;
     }
 
-    if (optionUsed('delete-all-simtricity-raw-tables', $options, $parameters))
+    if (optionUsed('delete-simtricity', $options, $parameters))
     {
         if ($deleteCCRMode)
         {
-            print("Warning: The --delete-all-simtricity-raw-tables option will be ignored as --delete-create-centre-raw-table was specified too\n");
+            print("Warning: The --delete-simtricity option will be ignored as --delete-create-centre was specified too\n");
         }
         $deleteSimtricityMode = TRUE;
     }
@@ -318,20 +318,29 @@ if ($deleteCCRMode)
 
 if ($deleteSimtricityMode)
 {
-    // Drop all the Simtricity reading and power tables
+    // Drop Simtricity reading tables
     $meterInfo = $becDB->getMeterInfoArray();
     $result = TRUE;
     foreach ($meterInfo as $meter)
     {
-        foreach (array('dailyreading_', 'power_') as $prefix)
+        $tableName = 'dailyreading_' . $becDB->meterDBName($meter['code']);
+        $res = $becDB->exec('DROP TABLE ' . $tableName);
+        if ($res === FALSE)
         {
-            $tableName = $prefix . $becDB->meterDBName($meter['code']);
-            $res = $becDB->exec('DROP TABLE ' . $tableName);
-            if ($res === FALSE)
-            {
-                print("Error: Failed when trying to remove table $tableName\n");
-                $result = $res;
-            }
+            print("Error: Failed when trying to remove table $tableName\n");
+            $result = $res;
+        }
+    }
+
+    // Drop power, sites and meters tables
+    $tables = array('power', 'sites', 'meters');
+    foreach ($tables as $table)
+    {
+        $res = $becDB->exec('DROP TABLE ' . $table);
+        if ($res === FALSE)
+        {
+            print("Error: Failed when trying to remove table '$table'\n");
+            $result = $res;
         }
     }
     exit($result !== FALSE ? 0 : 1);
