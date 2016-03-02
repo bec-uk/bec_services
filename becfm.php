@@ -106,7 +106,8 @@ $helpString = "Usage: php $argv[0] <options>\n" .
               '                    Override location of the ini file to use' . "\n" .
               '  -l                List arrays already in BEC database and exit' . "\n" .
               '  -u                Update array list from Simtricity and exit' . "\n" .
-              '  -v                Verbose output' . "\n" .
+              '  -v <l> | --verbose <l>' . "\n" .
+              '                    Verbose output - an optional verbosity level <l> may be specified' . "\n" .
               '  --array <array>   Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
               '  --delete-create-centre' . "\n" .
               '                    Delete Create Centre data from the database and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
@@ -137,7 +138,7 @@ if ($argc > 1)
                          'h' => 'help',
                          'i:' => 'ini-file:',
                          'u' => '',
-                         'v' => 'verbose',
+                         'v::' => 'verbose::',
                          'array:',
                          'delete-create-centre',
                          'delete-all-simtricity',
@@ -218,10 +219,17 @@ if ($argc > 1)
         return FALSE;
     }
 
-    if (optionUsed('v', $options, $parameters))
+    if ($verbosity = optionUsed('v', $options, $parameters))
     {
-        // Enable verbose output
-        $verbose = TRUE;
+        if ($verbosity > 1)
+        {
+            $verbose = $verbosity;
+        }
+        else
+        {
+            // Enable verbose output
+            $verbose = 1;
+        }
     }
 
     if ($t = optionUsed('i', $options, $parameters))
