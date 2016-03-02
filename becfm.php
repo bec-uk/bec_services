@@ -102,22 +102,23 @@ function expandHomeDirectory($path)
 $helpString = "Usage: php $argv[0] <options>\n" .
               'where <options> are:' . "\n" .
               '  -h | --help       Display this usage message' . "\n" .
-              '  -i <filename | --ini-file <filename>' . "\n" .
+              '  -i <filename> | --ini-file <filename>' . "\n" .
               '                    Override location of the ini file to use' . "\n" .
               '  -l                List arrays already in BEC database and exit' . "\n" .
               '  -u                Update array list from Simtricity and exit' . "\n" .
-              '  -v <l> | --verbose <l>' . "\n" .
+              '  -v[<l>] | --verbose[=<l>]' . "\n" .
               '                    Verbose output - an optional verbosity level <l> may be specified' . "\n" .
-              '  --array <array>   Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
+//TODO              '  --array <array>   Run only for arrays given via one or more --array options (default is to run for all arrays)' . "\n" .
               '  --delete-create-centre' . "\n" .
               '                    Delete Create Centre data from the database and delete the IMPORTED label from the gmail account so everything will be re-imported, then exit' . "\n" .
               '  --delete-simtricity' . "\n" .
               '                    Delete Simtricity data from the database and exit' . "\n" .
-              '  --html-report-dir <path>' . "\n" .
-              '                    Location to write the HTML report (default is /var/www/bec-gen-report)' . "\n" .
-              '  --no-html-report  Supress creation of HTML report (default is to create an HTML report a web browser can read)' . "\n" .
-              '  --run-read-only   Run on existing data and report only to screen; do not alter database or Gmail account (send emails) and don\'t create HTML report' . "\n" .
-              '  --temp-dir <path> Override path to the temporary directory (default is /tmp)' . "\n";
+//TODO              '  --html-report-dir <path>' . "\n" .
+//              '                    Location to write the HTML report (default is /var/www/bec-gen-report)' . "\n" .
+//TODO              '  --no-html-report  Supress creation of HTML report (default is to create an HTML report a web browser can read)' . "\n" .
+//TODO              '  --run-read-only   Run on existing data and report only to screen; do not alter database or Gmail account (send emails) and don\'t create HTML report' . "\n" .
+//TODO              '  --temp-dir <path> Override path to the temporary directory (default is /tmp)' . "\n";
+'';
 
 
 /****************************************************************************
@@ -186,13 +187,25 @@ if ($argc > 1)
      * @param array $parameters An array of supported parameters
      * @return mixed FALSE if not used, otherwise TRUE or the option parameter if there was one
      */
-    function optionUsed($option, $options, $parameters)
+    function optionUsed($option, &$options, &$parameters)
     {
+        static $paramsNoColons = NULL;
+        if ($paramsNoColons == NULL)
+        {
+            // Strip all colons from keys and values
+            foreach ($parameters as $key => $value)
+            {
+                $key = str_replace(':', '', $key);
+                $value = str_replace(':', '', $value);
+                $paramsNoColons[$key] = $value;
+            }
+        }
+
         $shortOptUsed = key_exists($option, $options);
         $longOptUsed = FALSE;
-        if (key_exists($option, $parameters))
+        if (key_exists($option, $paramsNoColons))
         {
-            $longOptUsed = key_exists($parameters[$option], $options);
+            $longOptUsed = key_exists($paramsNoColons[$option], $options);
         }
         if ($shortOptUsed)
         {
@@ -207,9 +220,9 @@ if ($argc > 1)
         }
         else if ($longOptUsed)
         {
-            if ($options[$parameters[$option]] != FALSE)
+            if ($options[$paramsNoColons[$option]] != FALSE)
             {
-                return $options[$parameters[$option]];
+                return $options[$paramsNoColons[$option]];
             }
             else
             {
@@ -219,23 +232,40 @@ if ($argc > 1)
         return FALSE;
     }
 
+    /**
+     * array_reduce callback function to return the highest number from an array
+     *
+     * @param int $carry Return value from previous call for this array
+     * @param int $item Item under consideration
+     * @return int Higher of $carry and $item
+     */
+    function higherNum($carry, $item)
+    {
+        return ($carry > $item ? $carry : $item);
+    }
+
     if ($verbosity = optionUsed('v', $options, $parameters))
     {
+        // Enable verbose output...we cope with multiple calls, but long
+        // options will be ignored if short options were used too.
+        if (is_array($verbosity))
+        {
+            $verbosity = array_reduce($verbosity, 'higherNum');
+        }
         if ($verbosity > 1)
         {
             $verbose = $verbosity;
         }
         else
         {
-            // Enable verbose output
             $verbose = 1;
         }
     }
 
-    if ($t = optionUsed('i', $options, $parameters))
+    if ($iniFile = optionUsed('i', $options, $parameters))
     {
-        // Enable verbose output
-        $iniFilename = $t;
+        // Set the name of the ini file to use
+        $iniFilename = $iniFile;
     }
 
     if (optionUsed('h', $options, $parameters))
@@ -245,7 +275,7 @@ if ($argc > 1)
         exit(0);
     }
 
-    if (optionUsed('l', &$options, &$parameters))
+    if (optionUsed('l', $options, $parameters))
     {
         // FIXME: We don't yet support the concept of 'arrays'
         die('Error: Simtricity & these scripts do not yet support the concept of arrays; everything is done by meter' . "\n");
@@ -254,7 +284,7 @@ if ($argc > 1)
         exit(0);
     }
 
-    if (optionUsed('u', $options, &$parameters))
+    if (optionUsed('u', $options, $parameters))
     {
         // FIXME: We don't yet support the concept of 'arrays'
         die('Error: Simtricity & these scripts do not yet support the concept of arrays; everything is done by meter' . "\n");
@@ -309,6 +339,10 @@ $ini = array(// Database
 if (file_exists($iniFilename))
 {
     $ini = array_merge($ini, parse_ini_file($iniFilename));
+}
+else if ($iniFilename != BECFM_INI_FILENAME)
+{
+    die("Error: Requested ini file '$iniFilename' not found\n");
 }
 
 // Connect to the BEC database
