@@ -574,22 +574,11 @@ class BECDB
             {
                 die('Error: Failed to create table \'' . BEC_DB_FORECAST_IO_TABLE . "'\n");
             }
-
-            // Find oldest record in any of our power tables as start of date range
-            $oldestDate = new DateTime();
-            $tableList = $this->fetchQuery('SHOW tables');
-            foreach ($tableList as $tableName)
             {
-                if (substr($tableName[0], 0, 6) == 'power_')
-                {
-                    $dateRange = $this->getDateTimeExtremesFromTable($tableName[0]);
-                    if ($dateRange && $oldestDate->getTimestamp() > $dateRange[0]->getTimestamp())
-                    {
-                        $oldestDate = $dateRange[0];
-                    }
-                }
             }
-            $dateRange[0] = $oldestDate;
+
+            // Find oldest record in the power table as start of date range
+            $dateRange = $this->getDateTimeExtremesFromTable('power');
         }
         else
         {
