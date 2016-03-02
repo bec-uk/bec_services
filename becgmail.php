@@ -355,5 +355,53 @@ class BECGmailWrapper
         }
     }
 
+
+    /**
+     * Send an HTML format email.  Any '\n' in the body will be converted to <br>.
+     *
+     * @param string $to Comma-separated list of email addresses
+     * @param string $cc Comma-separated list of email addresses
+     * @param string $bcc Comma-separated list of email addresses
+     * @param string $subject Message subject
+     * @param array $body Array of strings which will form the main body of the email
+     * 	                   These will be joined by <br> (a new-line).  To make paragraphs
+     * 	                   separate either add a trailing '\n' or '<br>' to a string.
+     */
+    public function sendEmail($to, $cc, $bcc, $subject, $body)
+    {
+        global $ini, $verbose;
+
+        $strRawMessage = 'From: ' . $ini['gmail_from'] . "\r\n";
+        $strRawMessage .= "To: $to\r\n";
+        $strRawMessage .= "CC: $cc\r\n";
+        $strRawMessage .= "BCC: $bcc\r\n";
+        $strRawMessage .= 'Subject: =?utf-8?B?' . base64_encode($subject) . "?=\r\n";
+        $strRawMessage .= "MIME-Version: 1.0\r\n";
+        $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n";
+        $strRawMessage .= 'Content-Transfer-Encoding: quoted-printable' . "\r\n\r\n";
+        $strRawMessage .= implode('<br>', str_replace('\n', '<br>', $body)) . "\r\n";
+
+        //Users.messages->send - Requires -> Prepare the message in message/rfc822
+        // The message needs to be encoded in Base64URL
+        $mime = rtrim(strtr(base64_encode($strRawMessage), '+/', '-_'), '=');
+        try {
+            $msg = new Google_Service_Gmail_Message();
+            $msg->setRaw($mime);
+
+            //The special value **me** can be used to indicate the authenticated user.
+            $objSentMsg = $this->service->users_messages->send($ini['gmail_username'], $msg);
+            if ($verbose > 3)
+            {
+                print("Email send:\n");
+                print_r($objSentMsg);
+            }
+        }
+        catch (Exception $e)
+        {
+            print('Error: Exception - ' . $e->getMessage() . "\n");
+            return FALSE;
+        }
+        return TRUE;
+    }
 }
 ?>
