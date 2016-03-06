@@ -111,7 +111,7 @@ class BECDB
      * @param string $sql The SQL query to run
      * @return string The result of the SQL query, or FALSE on failure
      */
-    public function fetchQuery($sql)
+    public function fetchQuery($sql, $params = NULL)
     {
         if (FALSE === ($query = $this->dbHandle->query($sql)))
         {
@@ -119,7 +119,7 @@ class BECDB
             print_r($this->dbHandle->errorInfo());
             return FALSE;
         }
-        $result = $query->fetchAll();
+        $result = $query->fetchAll($params);
         if (FALSE === $result)
         {
             print("Error: Failed to store result of query '$sql'\n");
