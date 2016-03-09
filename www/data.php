@@ -93,7 +93,7 @@ if (key_exists('dataset', $_GET) &&
         $needAnd = TRUE;
     }
 
-    $result = $becDB->fetchQuery($sql, PDO::FETCH_ASSOC);
+    $result = $becDB->fetchQuery($sql);
     if (!$result)
     {
         goto html;

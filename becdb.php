@@ -109,9 +109,13 @@ class BECDB
     /**
      * Run an SQL query and return the result (or FALSE on failure)
      * @param string $sql The SQL query to run
+     * @param bitmask $params Optional bitmask of parameters to pass into the
+     * 			       PDO::fetchAll() function - default to associative
+     * 			       array results (pass in NULL to include numbered
+     * 			       indexes too)
      * @return string The result of the SQL query, or FALSE on failure
      */
-    public function fetchQuery($sql, $params = NULL)
+    public function fetchQuery($sql, $params = PDO::FETCH_ASSOC)
     {
         if (FALSE === ($query = $this->dbHandle->query($sql)))
         {
@@ -164,8 +168,8 @@ class BECDB
             {
                 $whereClause = " WHERE $popColumn IS NOT NULL";
             }
-            $result[0] = $this->fetchQuery('SELECT MIN(datetime) FROM ' . $table . $whereClause);
-            $result[1] = $this->fetchQuery('SELECT MAX(datetime) FROM ' . $table . $whereClause);
+            $result[0] = $this->fetchQuery('SELECT MIN(datetime) FROM ' . $table . $whereClause, NULL);
+            $result[1] = $this->fetchQuery('SELECT MAX(datetime) FROM ' . $table . $whereClause, NULL);
             if (DEBUG)
             {
                 print_r($result);
@@ -199,7 +203,7 @@ class BECDB
         {
             $whereClause = " WHERE $popColumn IS NOT NULL";
         }
-        $rowCount = $this->fetchQuery("SELECT COUNT(1) FROM $table$whereClause");
+        $rowCount = $this->fetchQuery("SELECT COUNT(1) FROM $table$whereClause", NULL);
         if (count($rowCount) > 0)
             return $rowCount[0][0];
         else
