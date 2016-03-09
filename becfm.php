@@ -105,6 +105,7 @@ $helpString = "Usage: php $argv[0] <options>\n" .
               '  -i <filename> | --ini-file <filename>' . "\n" .
               '                    Override location of the ini file to use' . "\n" .
               '  -l                List arrays already in BEC database and exit' . "\n" .
+              '  -R | --readonly   Run without importing any new data' . "\n" .
               '  -u                Update array list from Simtricity and exit' . "\n" .
               '  -v[<l>] | --verbose[=<l>]' . "\n" .
               '                    Verbose output - an optional verbosity level <l> may be specified' . "\n" .
@@ -130,6 +131,7 @@ unset($argv[0]);
 
 $deleteCCRMode = FALSE;
 $deleteSimtricityMode = FALSE;
+$readOnlyMode = FALSE;
 
 if ($argc > 1)
 {
@@ -138,6 +140,7 @@ if ($argc > 1)
     $parameters = array('l' => '',
                          'h' => 'help',
                          'i:' => 'ini-file:',
+                         'R' => 'readonly',
                          'u' => '',
                          'v::' => 'verbose::',
                          'array:',
@@ -284,6 +287,11 @@ if ($argc > 1)
         exit(0);
     }
 
+    if (optionUsed('R', $options, $parameters))
+    {
+        $readOnlyMode = TRUE;
+    }
+
     if (optionUsed('u', $options, $parameters))
     {
         // FIXME: We don't yet support the concept of 'arrays'
@@ -396,60 +404,65 @@ if ($deleteSimtricityMode)
 
 // Normal processing mode
 
-// Import any new Create Centre data from Gmail account
-if (FALSE === $gmail->importNewMeteoData($becDB))
+if (!$readOnlyMode)
 {
-    die('Error: Failed while importing Create Centre meteorlogical data' . "\n");
-}
-
-// Update list of sites and meters from Simtricity
-$simtricity = new BECSimtricity();
-$simtricity->updateSiteDataFromSimtricty($becDB, 'sites');
-$simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
-
-
-// Pull reading & power data for all Simtricity meters
-// TODO: Move functions into becdb.php and pass in $simtricity so it can be used to retrieve data
-$simtricity->updateAllMeterReadings($becDB);
-$simtricity->updateAllMeterPowerData($becDB);
-
-// Pull weather data from forecast.io
-$forecastIO = new BECForecastIO($ini['forecast_io_api_key_path']);
-$becDB->updateForecastIOHistory($forecastIO);
-
-// Pull weather data from Filton weather station
-$filtonWeather = new BECFiltonWeather();
-// Read any *.csv files in a sub-directory of the current directory called filtonweather
-$dirString = 'filtonweather';
-$dir = dir($dirString);
-while($dir && $entry = $dir->read())
-{
-    $filename = $dirString . '/' . $entry;
-    if (strpos($entry, '.csv') == (strlen($entry) - 4) && is_file($filename))
+    // Import any new Create Centre data from Gmail account
+    if (FALSE === $gmail->importNewMeteoData($becDB))
     {
-        if ($becDB->importFiltonWeatherCSVFile(BEC_DB_FILTON_WEATHER_TABLE, $filename))
+        die('Error: Failed while importing Create Centre meteorlogical data' . "\n");
+    }
+
+    // Update list of sites and meters from Simtricity
+    $simtricity = new BECSimtricity();
+    $simtricity->updateSiteDataFromSimtricty($becDB, 'sites');
+    $simtricity->updateMeterDataFromSimtricty($becDB, 'meters');
+
+
+    // Pull reading & power data for all Simtricity meters
+    // TODO: Move functions into becdb.php and pass in $simtricity so it can be used to retrieve data
+    $simtricity->updateAllMeterReadings($becDB);
+    $simtricity->updateAllMeterPowerData($becDB);
+
+
+    // Pull weather data from forecast.io
+    $forecastIO = new BECForecastIO($ini['forecast_io_api_key_path']);
+    $becDB->updateForecastIOHistory($forecastIO);
+
+
+    // Pull weather data from Filton weather station
+    $filtonWeather = new BECFiltonWeather();
+    // Read any *.csv files in a sub-directory of the current directory called filtonweather
+    $dirString = 'filtonweather';
+    $dir = dir($dirString);
+    while($dir && $entry = $dir->read())
+    {
+        $filename = $dirString . '/' . $entry;
+        if (strpos($entry, '.csv') == (strlen($entry) - 4) && is_file($filename))
         {
-            // Add .imported to the filename so it won't be imported again
-            rename($filename, $filename . '.imported');
+            if ($becDB->importFiltonWeatherCSVFile(BEC_DB_FILTON_WEATHER_TABLE, $filename))
+            {
+                // Add .imported to the filename so it won't be imported again
+                rename($filename, $filename . '.imported');
+            }
         }
     }
+    if ($dir) $dir->close();
+    // Read any web weather from the latest date we already have (or earliest date possible) up to now
+    $dates = $becDB->getDateTimeExtremesFromTable(BEC_DB_FILTON_WEATHER_TABLE);
+    if ($dates === FALSE)
+    {
+        // No data yet; read from the earliest date we can
+        $dates[0] = new DateTime(BECFiltonWeather::EARLIEST_WEB_DATE);
+    }
+    else
+    {
+        // We add 30 minutes just in case the last time was 23:30 - we don't
+        // want to fetch the whole day again.
+        $dates[0] = $dates[1]->add(new DateInterval('PT30M'));
+    }
+    $dates[1] = new DateTime();
+    $becDB->importFiltonWeatherWebCSV($filtonWeather, BEC_DB_FILTON_WEATHER_TABLE, $dates);
 }
-if ($dir) $dir->close();
-// Read any web weather from the latest date we already have (or earliest date possible) up to now
-$dates = $becDB->getDateTimeExtremesFromTable(BEC_DB_FILTON_WEATHER_TABLE);
-if ($dates === FALSE)
-{
-    // No data yet; read from the earliest date we can
-    $dates[0] = new DateTime(BECFiltonWeather::EARLIEST_WEB_DATE);
-}
-else
-{
-    // We add 30 minutes just in case the last time was 23:30 - we don't
-    // want to fetch the whole day again.
-    $dates[0] = $dates[1]->add(new DateInterval('PT30M'));
-}
-$dates[1] = new DateTime();
-$becDB->importFiltonWeatherWebCSV($filtonWeather, BEC_DB_FILTON_WEATHER_TABLE, $dates);
 
 // Compare solar radiation and generation readings
 
