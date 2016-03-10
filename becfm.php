@@ -38,7 +38,7 @@ define('BECFM_INI_FILENAME', 'becfm.ini');
 $iniFilename = BECFM_INI_FILENAME;
 
 // Stuff to use the Google Gmail and Overcast APIs
-require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/vendor/autoload.php';
 define('GMAIL_SCOPES', implode(' ', array(//Google_Service_Gmail::GMAIL_LABELS,
                                            Google_Service_Gmail::GMAIL_MODIFY,
                                            //Google_Service_Gmail::GMAIL_READONLY,
@@ -68,11 +68,11 @@ define('FORECAST_IO_LONG', -2.602);
 // Verbose output?
 $verbose = FALSE;
 
-require 'becdb.php';
-require 'becfiltonweather.php';
-require 'becforecastio.php';
-require 'becgmail.php';
-require 'becsimtricity.php';
+require_once 'becdb.php';
+require_once 'becfiltonweather.php';
+require_once 'becforecastio.php';
+require_once 'becgmail.php';
+require_once 'becsimtricity.php';
 
 /*****************************************************************************/
 
