@@ -1,4 +1,4 @@
-#!/usr/bin/php
+#!/usr/bin/php  # -->
 <?php
 
 /**
@@ -23,12 +23,6 @@
 
 // Report all PHP errors
 error_reporting(E_ALL);
-
-// Only allow execution from a command line launch
-if (php_sapi_name() != 'cli')
-{
-    die("Error: This application must be run from a command line\n");
-}
 
 /******************************************************************************
  * Defines and globals
@@ -126,9 +120,6 @@ $helpString = "Usage: php $argv[0] <options>\n" .
  * Main (start of code)
  ****************************************************************************/
 
-// Throw away name of script from $argv
-unset($argv[0]);
-
 $deleteCCRMode = FALSE;
 $deleteSimtricityMode = FALSE;
 $readOnlyMode = FALSE;
@@ -172,6 +163,8 @@ if ($argc > 1)
         unset($argv[$key]);
     }
 
+    // Throw away name of script from $argv
+    unset($argv[0]);
     // Error if anything left in $argv
     if (count($argv) > 0)
     {

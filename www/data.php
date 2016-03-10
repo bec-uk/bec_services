@@ -35,7 +35,7 @@ if (key_exists('dataset', $_GET) &&
 
     // Pull in the becdb.php file from the BEC fault monitoring software
     set_include_path(get_include_path() . PATH_SEPARATOR . $ini['bec_fault_mon_path']);
-    require 'becdb.php';
+    require_once 'becdb.php';
 
     $becDB = new BECDB($ini['database_type'], $ini['database_host'],
                        $ini['database_name'], $ini['database_username'],
@@ -117,18 +117,20 @@ html:
 </head>
 <body>
 Queries are of the following form:<br>
-&nbsp;<code>.../weather.php?dataset=(<?php print(implode('|', $datasets));?>
+&nbsp;<code>.../data.php?dataset=(<?php print(implode('|', $datasets));?>
 )[&amp;start=&lt;datetime&gt;][&amp;end=&lt;datetime&gt;][&amp;format=daily]</code><br>
 where:
 <ul>
 <li>the datasets are forecast.io, Filton weather station, or Create Centre data</li>
 <li><code>start</code> and <code>end</code> specify the start and end of the time period to request data for</li>
-<li>a <code>datetime</code> is in the format YYYY-MM-DD[THH:mm] and specified in UTC/GMT - the time must not be specified if <code>format=daily</code> is used</li>
-<li>the default format will be the finest time-grain in the dataset, but 'daily' can be specified to 'zoom out'</li>
+<li>a <code>datetime</code> is in the format <code>YYYY-MM-DD[THH:mm]</code> and specified in UTC/GMT - the time must not be specified if <code>format=daily</code> is used</li>
+<li>the default format will be the finest time-grain in the dataset, but 'daily' can be specified to 'zoom out' (only available for forecast.io dataset currently)</li>
 </ul>
 <hr>
 <?php
+print("Get array:<br>&nbsp;&nbsp;");
 print_r($_GET);
+print("<br>SQL command:<br>&nbsp;&nbsp;");
 print($sql);
 ?>
 </body>
