@@ -837,8 +837,8 @@ class BECDB
 
         $data = $this->fetchQuery($sql);
 
-        $maxSolRad = $this->fetchQuery("SELECT MAX(sol_rad) FROM $solRadTable" . $whereClause);
-        $maxPower = $this->fetchQuery("SELECT MAX($powerColumn) FROM $powerTable" . $whereClausePower);
+        $maxSolRad = $this->fetchQuery("SELECT MAX(sol_rad) FROM $solRadTable" . $whereClause, PDO::FETCH_NUM);
+        $maxPower = $this->fetchQuery("SELECT MAX($powerColumn) FROM $powerTable" . $whereClausePower, PDO::FETCH_NUM);
         if ($maxPower[0][0] == 0)
         {
             // If there was never any power, divide by 1 rather than 0 when scaling!
