@@ -11,10 +11,11 @@
 <?php
 
 // Launch in read-only mode with verbose output
-$argv = array('becfm.php', '-v', '-R');
+$argv = array('becfm.php', '-v');
 $argc = sizeof($argv);
 
-require_once '../becfm.php';
+chdir('..');
+require_once 'becfm.php';
 
 ?> -->
 </PRE>

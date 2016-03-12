@@ -4,6 +4,7 @@
  * Web-based access to data from the Bristol Energy Cooperative database.
  **/
 
+chdir('..');
 define('DATA_INI_FILENAME', 'data.ini');
 $iniFilename = DATA_INI_FILENAME;
 
@@ -21,7 +22,7 @@ if (key_exists('dataset', $_GET) &&
                  'database_username' => 'www-data',
                  'database_user_password' => '',
 
-                 'bec_fault_mon_path' => '/mnt/1tb1/devel/bec_src/bec_fault_mon');
+                 'bec_fault_mon_path' => '..');
 
     // Read configuration from ini file to override defaults
     if (file_exists($iniFilename))
