@@ -386,7 +386,7 @@ class BECGmailWrapper
         $strRawMessage .= "MIME-Version: 1.0\r\n";
         $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n";
         $strRawMessage .= 'Content-Transfer-Encoding: quoted-printable' . "\r\n\r\n";
-        $strRawMessage .= implode('<br>', str_replace('\n', '<br>', $body)) . "\r\n";
+        $strRawMessage .= implode('<br>', str_replace(array('\n', "\n"), '<br>' . "\r\n", $body)) . "\r\n";
 
         //Users.messages->send - Requires -> Prepare the message in message/rfc822
         // The message needs to be encoded in Base64URL
