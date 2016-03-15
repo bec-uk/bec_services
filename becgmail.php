@@ -30,6 +30,8 @@ class BECGmailWrapper
         $client->setApplicationName($ini['gmail_application_name']);
         $client->setScopes(GMAIL_SCOPES);
         $client->setAuthConfigFile($ini['gmail_client_secret_path']);
+
+        // We want access even when the user is not logged in
         $client->setAccessType('offline');
 
         // Load previously authorized credentials from a file.
@@ -41,8 +43,13 @@ class BECGmailWrapper
         else
         {
             // Request authorization from the user.
-            $authUrl = $client->createAuthUrl();
-            printf("Open the following link in your browser:\n%s\n", $authUrl);
+            $authURL = $client->createAuthUrl();
+            if (php_sapi_name() != 'cli')
+            {
+                // Re-direct browser to authentication URL
+                header('Location: ' . filter_var($authURL, FILTER_SANITIZE_URL));
+            }
+            printf("Open the following link in your browser:\n%s\n", $authURL);
             print 'Enter verification code: ';
             $authCode = trim(fgets(STDIN));
 
