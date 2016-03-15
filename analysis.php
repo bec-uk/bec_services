@@ -107,8 +107,12 @@ function missingPowerDataYesterday(&$becDB)
 
     if (sizeof($result) == 0)
     {
-        ReportLog::append('Simtricity: No power data found for yesterday (' . getYesterdayForSQL() . ")\n\n");
+        ReportLog::append('Simtricity: No power data found for yesterday (' . getYesterdayForSQL() . ")\n");
         ReportLog::setError(TRUE);
+
+        // Also report the latest power reading we have got
+        $dateRange = $becDB->getDateTimeExtremesFromTable('power');
+        ReportLog::append('Most recent power data is from ' . $dateRange[1]->format('Y-m-d') . "\n\n");
         return TRUE;
     }
 
