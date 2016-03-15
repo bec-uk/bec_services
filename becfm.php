@@ -68,11 +68,13 @@ define('FORECAST_IO_LONG', -2.602);
 // Verbose output?
 $verbose = FALSE;
 
+require_once 'analysis.php';
 require_once 'becdb.php';
 require_once 'becfiltonweather.php';
 require_once 'becforecastio.php';
 require_once 'becgmail.php';
 require_once 'becsimtricity.php';
+require_once 'reportlog.php';
 
 /*****************************************************************************/
 
@@ -457,10 +459,23 @@ if (!$readOnlyMode)
     $becDB->importFiltonWeatherWebCSV($filtonWeather, BEC_DB_FILTON_WEATHER_TABLE, $dates);
 }
 
-// Compare solar radiation and generation readings
+// Reporting
+missingPowerDataYesterday($becDB);
+zeroPowerYesterday($becDB);
+$report = ReportLog::get();
+print("Report log:\n" . $report);
 
+// Send email report containing report log if there was an error
+if (ReportLog::hasError())
+{
+    $now = new DateTime();
+    $msgBody = array('This is the report log generated at ' . $now->format('d/m/Y H:i') . '\n' .
+                      $report);
+    $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC fault monitoring report', $msgBody);
+}
 
-// HTML report
+// TODO: HTML report
+
 
 // Generate graphs
 if ($becDB->graphsEnabled)

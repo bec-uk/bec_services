@@ -794,6 +794,19 @@ class BECDB
 
 
     /**
+     * Function to return an array containing the meter codes for all generation meters
+     * FIXME: This is current hard-coded - we want to be able to extract it from the
+     * database!
+     *
+     * @return array Array of generation meter code (strings)
+     */
+    public function getGenMeterArray()
+    {
+        return array('sbsc', 'hh1', 'myc_gen', 'fh_gen', 'pv2_gen', 'bhcc_gen');
+    }
+
+
+    /**
      * Function to generate a file containing a graph of power (kW) against
      * solar radiation (W/m2) using data from the given tables.  A date range
      * can be specified to restrict the x-axis.
