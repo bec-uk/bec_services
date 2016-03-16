@@ -330,7 +330,7 @@ $ini = array(// Database
               'gmail_credentials_path' => __DIR__ . '/bec_fault_mon.json',
               'gmail_client_secret_path' => __DIR__ . '/client_secret.json',
               'gmail_username' => 'me',
-              'gmail_from' => 'bec-pv@googlegroups.com',
+              'gmail_from' => 'becmonitoring@gmail.com',
               // Simtricity
               'simtricity_base_uri' => 'https://trial.simtricity.com',
               'simtricity_token_path' => __DIR__ . '/simtricity_token.txt',
