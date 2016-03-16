@@ -26,51 +26,95 @@ class BECGmailWrapper
     {
         global $ini;
 
-        $client = new Google_Client();
-        $client->setApplicationName($ini['gmail_application_name']);
-        $client->setScopes(GMAIL_SCOPES);
-        $client->setAuthConfigFile($ini['gmail_client_secret_path']);
-
-        // We want access even when the user is not logged in
-        $client->setAccessType('offline');
-
-        // Load previously authorized credentials from a file.
-        $credentialsPath = expandHomeDirectory($ini['gmail_credentials_path']);
-        if (file_exists($credentialsPath))
+        if (DEBUG)
         {
-            $accessToken = file_get_contents($credentialsPath);
+            print("Google APIs application name: $ini[gmail_application_name]\n" .
+                   "Google Gmail client secret file: $ini[gmail_client_secret_path]\n" .
+                   "Google Gmail credentials path: $ini[gmail_credentials_path]\n");
         }
-        else
+
+        try
         {
-            // Request authorization from the user.
-            $authURL = $client->createAuthUrl();
-            if (php_sapi_name() != 'cli')
-            {
-                // Re-direct browser to authentication URL
-                header('Location: ' . filter_var($authURL, FILTER_SANITIZE_URL));
-            }
-            printf("Open the following link in your browser:\n%s\n", $authURL);
-            print 'Enter verification code: ';
-            $authCode = trim(fgets(STDIN));
+            $client = new Google_Client();
+            $client->setApplicationName($ini['gmail_application_name']);
+            $client->setScopes(GMAIL_SCOPES);
+            $client->setAuthConfigFile($ini['gmail_client_secret_path']);
 
-            // Exchange authorization code for an access token.
-            $accessToken = $client->authenticate($authCode);
+            // We want access even when the user is not logged in
+            $client->setAccessType('offline');
 
-            // Store the credentials to disk.
-            if(!file_exists(dirname($credentialsPath)))
+            // Load previously authorized credentials from a file.
+            $credentialsPath = expandHomeDirectory($ini['gmail_credentials_path']);
+            if (file_exists($credentialsPath))
             {
-                mkdir(dirname($credentialsPath), 0700, true);
+                if (DEBUG)
+                {
+                    print("Using existing access token from $credentialsPath\n");
+                }
+                $accessToken = file_get_contents($credentialsPath);
             }
-            file_put_contents($credentialsPath, $accessToken);
-            printf("Credentials saved to %s\n", $credentialsPath);
+            else
+            {
+                // Request authorisation from the user.
+                if (DEBUG)
+                {
+                    print("Requesting authorisation\n");
+                }
+                $authURL = $client->createAuthUrl();
+                if (php_sapi_name() != 'cli')
+                {
+                    // Re-direct browser to authentication URL
+                    header('Location: ' . filter_var($authURL, FILTER_SANITIZE_URL));
+                }
+                print("Open the following link in your browser:\n$authURL\n");
+                print('Enter verification code: ');
+                $authCode = trim(fgets(STDIN));
+
+                // Exchange authorization code for an access token.
+                $accessToken = $client->authenticate($authCode);
+
+                // Store the credentials to disk.
+                if(!file_exists(dirname($credentialsPath)))
+                {
+                    mkdir(dirname($credentialsPath), 0700, true);
+                }
+                file_put_contents($credentialsPath, $accessToken);
+                if ($verbose > 1)
+                {
+                    print("Credentials saved to $credentialsPath\n");
+                }
+            }
+            if (DEBUG)
+            {
+                print_r($accessToken);
+                print("\n");
+            }
+            $client->setAccessToken($accessToken);
+
+            // Refresh the token if it's expired.
+            if ($client->isAccessTokenExpired())
+            {
+                $client->refreshToken($client->getRefreshToken());
+                $accessToken = $client->getAccessToken();
+
+                // Check we've not lost the refresh token
+                if (FALSE == strstr($accessToken, 'refresh_token'))
+                {
+                    die("Error: Refreshed access token no longer contains refresh token used to retrieve it\n");
+                }
+
+                if (DEBUG)
+                {
+                    print("Refreshed accesss token:\n");
+                    print_r($accessToken);
+                }
+
+                file_put_contents($credentialsPath, $accessToken);
+            }
         }
-        $client->setAccessToken($accessToken);
-
-        // Refresh the token if it's expired.
-        if ($client->isAccessTokenExpired())
+        catch (Exception $e)
         {
-            $client->refreshToken($client->getRefreshToken());
-            file_put_contents($credentialsPath, $client->getAccessToken());
+            print('Exception: ' . $e->getMessage());
         }
         return $client;
     }

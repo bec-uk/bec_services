@@ -16,8 +16,8 @@ try {
     $iniFilename = BECFM_INI_FILENAME;
 
     // ini contains defaults which can be overriden by the ini file
-    $ini = array('gmail_credentials_path' => __DIR__ . '/bec_fault_mon.json',
-                  'gmail_client_secret_path' => __DIR__ . '/client_secret.json');
+    $ini = array('gmail_credentials_path' => getcwd() . '/bec_fault_mon.json',
+                  'gmail_client_secret_path' => getcwd() . '/client_secret.json');
 
     if (!is_null($_GET['inifilename']))
     {
@@ -30,7 +30,7 @@ try {
     }
     else if ($iniFilename != BECFM_INI_FILENAME)
     {
-        die("<HTML>Error: Requested ini file '$iniFilename' not found\n</HMTL>");
+        die("<HTML>Error: Requested ini file '$iniFilename' not found</HMTL>");
     }
 
     // We're expecting a code (_GET['code'] which we need to exchange for an access token
@@ -44,32 +44,29 @@ try {
         // Exchange code for access token
         $client->authenticate($_GET['code']);
         $token = $client->getAccessToken();
-
-        // Save the access token
         $filename = $ini['gmail_credentials_path'];
-        $stream = fopen($filename, "c");
 
-        if ($stream == FALSE)
+        if (strlen($client->getRefreshToken()) < 5)
         {
-            die('<HTML>Error: Failed to open file for writing</HTML>');
+            /* We've lost the refresh token - it's better to revoke this
+             * token now and re-request access from the user.
+             */
+            $client->revokeToken();
+            unlink($filename);
         }
-        $written = 0;
-        while ($written < sizeof($token))
+        else
         {
-            $thisWrite = fwrite($stream, substr($token, $written));
-            if (FALSE != $thisWrite)
+            // Save the access token
+            if (strlen($token) != file_put_contents($filename, $token))
             {
-                $written += $thisWrite;
-            }
-            else
-            {
-                die('<HTML>Error: Failed while writing to filesystem</HTML>');
+                die("<HTML>Error: Failed to write access token to $filename</HTML>");
             }
         }
-        fclose($stream);
     }
 
-    // Re-fetch bec.php - it should find the access token thsi time if we saved one!
+    /* Re-fetch bec.php - it should find the access token this time if we saved one,
+     * or re-request access from the user.
+     */
     $redirectTo = 'bec.php';
     header('Location: ' . filter_var($redirectTo, FILTER_SANITIZE_URL));
 }
