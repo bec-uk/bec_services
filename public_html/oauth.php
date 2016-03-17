@@ -17,7 +17,8 @@ try {
 
     // ini contains defaults which can be overriden by the ini file
     $ini = array('gmail_credentials_path' => getcwd() . '/bec_fault_mon.json',
-                  'gmail_client_secret_path' => getcwd() . '/client_secret.json');
+                  'gmail_client_secret_path' => getcwd() . '/client_secret.json',
+                  'gmail_username' => 'me');
 
     if (!is_null($_GET['inifilename']))
     {
@@ -38,6 +39,7 @@ try {
 
     $client = new Google_Client();
     $client->setAuthConfigFile($ini['gmail_client_secret_path']);
+    $client->setLoginHint($ini['gmail_username']);
 
     if (isset($_GET['code'])) {
 

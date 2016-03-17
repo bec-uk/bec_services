@@ -39,6 +39,7 @@ class BECGmailWrapper
             $client->setApplicationName($ini['gmail_application_name']);
             $client->setScopes(GMAIL_SCOPES);
             $client->setAuthConfigFile($ini['gmail_client_secret_path']);
+            $client->setLoginHint($ini['gmail_username']);
 
             // We want access even when the user is not logged in
             $client->setAccessType('offline');
