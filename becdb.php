@@ -117,6 +117,13 @@ class BECDB
      */
     public function fetchQuery($sql, $params = PDO::FETCH_ASSOC)
     {
+        global $verbose;
+
+        if ($verbose > 4)
+        {
+            print(__FUNCTION__ . ': SQL query: ' . $sql . "\n");
+        }
+
         if (FALSE === ($query = $this->dbHandle->query($sql)))
         {
             print("Error: Failed to create query '$sql'\n");

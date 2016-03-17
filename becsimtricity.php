@@ -19,11 +19,11 @@ static $METER_FLOW_TOKEN = array(// Hamilton House
                                  '14240496' => 'f7fqhqcjeuhvaiq', // Imp/Exp (export from this flow token)
                                  '12156991' => '3vhoc3jskh2xp7i', // Gen
                                  // Easton Community Centre
-                                 '15096967' => 'o3slsz5fazdlfia',
+                                 '15096967' => 'o3slsz5fazdlfia', // Gen
                                  '15096969' => 'xxgt2dsuziyfc7a',
-                                 'EML1325015602' => 'w4h5zzpru5q7wgy',
-                                 'EML1325015594' => 'mqkegznis77lqby',
-                                 'EML1325015592' => 'mrxbc5db2gwipzi');
+                                 'EML1325015602' => 'w4h5zzpru5q7wgy', // Gen
+                                 'EML1325015594' => 'mqkegznis77lqby', // Gen
+                                 'EML1325015592' => 'mrxbc5db2gwipzi'); // Gen
 
 /**
  * Class handling access to the Simtricity platform for BEC PHP code
@@ -45,8 +45,6 @@ class BECSimtricity
     }
 
 
-
-
     /**
      * Return power data (from the gviz/flow API) and return it in a prepared
      * form we can use (stripping the Google Visualisation stuff so we just
@@ -59,11 +57,11 @@ class BECSimtricity
     {
         $gvizData = curlGetData($url, array('Content-type: text/javascript', 'Accept: text/javascript, application/json'));
 
-        // Strip up to "rows":
+        // Strip up to end of string '"rows":['
         $cutOffset = strpos($gvizData, '"rows":[') + 8;
         if ($cutOffset == 8)
         {
-            die('Error: Pasring gviz data failed; did not find row info' . "\n");
+            die('Error: Parsing gviz data failed; did not find row info' . "\n");
         }
         $gvizData = substr($gvizData, $cutOffset);
 

@@ -24,7 +24,14 @@ class BECGmailWrapper
      */
     function getClient()
     {
-        global $ini;
+        global $ini, $verbose;
+
+        if ($verbose > 3)
+        {
+            print("Google APIs application name: $ini[gmail_application_name]\n" .
+                   "Google Gmail client secret file: $ini[gmail_client_secret_path]\n" .
+                   "Google Gmail credentials path: $ini[gmail_credentials_path]\n");
+        }
 
         if (DEBUG)
         {
@@ -80,7 +87,7 @@ class BECGmailWrapper
                     mkdir(dirname($credentialsPath), 0700, true);
                 }
                 file_put_contents($credentialsPath, $accessToken);
-                if ($verbose > 1)
+                if ($verbose > 3)
                 {
                     print("Credentials saved to $credentialsPath\n");
                 }
@@ -329,17 +336,17 @@ class BECGmailWrapper
      */
     function importNewMeteoData(&$becDB)
     {
-        global $ini;
+        global $ini, $verbose;
 
-        // Get a list of email IDs from the Create Centre, subject
-        // "Air Quality Update", and not already marked as IMPORTED.
+        // Get a list of email IDs with subjects containing the words
+        // "Air Quality", and not already marked as IMPORTED.
         $createCentreUpdateEmailList = $this->getMessageHandleList(//'from:' . CREATE_CENTRE_EMAIL_ADDR . ', ' .
                                                                    'subject:Air Quality ,' .
                                                                    '!label:IMPORTED');
 
-        if (DEBUG)
+        if ($verbose)
         {
-            print('Importing CSV files from ' . count($createCentreUpdateEmailList) . " emails\n");
+            print('  Importing CSV files from ' . count($createCentreUpdateEmailList) . " emails\n");
         }
 
         // List the matching emails
@@ -356,14 +363,14 @@ class BECGmailWrapper
                     $dateTime = new DateTime($this->fixEmailDateHeaderTZ($header->getValue()));
                 }
             }
-            if (DEBUG)
+            if ($verbose > 2)
             {
-                print("  Date: " . $dateTime->format(DateTime::ISO8601) . '\n');
+                print("    Date: " . $dateTime->format(DateTime::ISO8601) . '\n');
             }
             $msgParts = $payload->getParts();
-            if (DEBUG)
+            if ($verbose > 4)
             {
-                print("  Parts: " . sizeof($msgParts) . "\n");
+                print("    Parts: " . sizeof($msgParts) . "\n");
             }
             foreach ($msgParts as $msgPart)
             {
@@ -372,15 +379,15 @@ class BECGmailWrapper
                 if ($msgPart->getMimeType() === 'application/octet-stream' &&
                     FALSE != strripos($outFilename, 'csv'))
                 {
-                    if (DEBUG)
+                    if ($verbose > 3)
                     {
-                        print(    "Filename: $outFilename\n");
-                        print(    "Data:\n");
+                        print("      Filename: $outFilename\n");
+                        print("      Data:\n");
                     }
                     $attachmentID = $msgPart->getBody()->getAttachmentId();
                     $data = $this->service->users_messages_attachments->get($ini['gmail_username'], $emailHandle->getId(), $attachmentID)->getData();
                     $data = base64_decode($data, TRUE);
-                    if (DEBUG)
+                    if ($verbose > 3)
                     {
                         print($data . "\n");
                     }
@@ -436,7 +443,8 @@ class BECGmailWrapper
         //Users.messages->send - Requires -> Prepare the message in message/rfc822
         // The message needs to be encoded in Base64URL
         $mime = rtrim(strtr(base64_encode($strRawMessage), '+/', '-_'), '=');
-        try {
+        try
+       {
             $msg = new Google_Service_Gmail_Message();
             $msg->setRaw($mime);
 
@@ -444,7 +452,7 @@ class BECGmailWrapper
             $objSentMsg = $this->service->users_messages->send($ini['gmail_username'], $msg);
             if ($verbose > 3)
             {
-                print("Email send:\n");
+                print(__FUNCTION__ . '(): Email sent:\n');
                 print_r($objSentMsg);
             }
         }

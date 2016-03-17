@@ -10,7 +10,7 @@
 	#!/usr/bin/php being output!
 <?php
 
-// Launch in read-only mode with verbose output
+// Launch with verbose output
 $argv = array('becfm.php', '-v');
 $argc = sizeof($argv);
 

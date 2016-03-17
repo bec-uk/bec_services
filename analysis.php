@@ -38,7 +38,7 @@ function getYesterdayForSQL()
  * over the last day despite decent sol_rad figures (>DECENT_SOLRAD_LIMIT W/m2).
  * It looks at each half-hourly measurement.
  *
- * @param unknown_type $becDB
+ * @param resource $becDB
  * @return boolean TRUE if any unexpected zero generation periods seen
  */
 function zeroPowerYesterday(&$becDB)
@@ -138,7 +138,7 @@ function missingPowerDataYesterday(&$becDB)
                     ReportLog::setError(TRUE);
                 }
                 ReportLog::append("  Meter $genMeter has missing power data for period ending " .
-                                   $entry['datetime']->format('H:i') . "\n");
+                                  $entry['datetime']->format('H:i') . "\n");
             }
         }
     }

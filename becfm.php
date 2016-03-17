@@ -463,7 +463,7 @@ if (!$readOnlyMode)
 missingPowerDataYesterday($becDB);
 zeroPowerYesterday($becDB);
 $report = ReportLog::get();
-print("Report log:\n" . $report);
+print("Report log:\n$report\n\n");
 
 // Send email report containing report log if there was an error
 if (ReportLog::hasError())
@@ -544,9 +544,6 @@ else if ($verbose > 0)
            "Website:\n" .
            "\thttp://www.ebrueggeman.com/phpgraphlib\n");
 }
-
-// Alert emails
-
 
 exit(0);
 ?>
