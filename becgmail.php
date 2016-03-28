@@ -414,6 +414,8 @@ class BECGmailWrapper
                     {
                         print("Error: Failed to import data from CSV file '$outFilename' - skipping\n");
                     }
+                    // And finally, delete it
+                    unlink($outFilename);
                 }
             }
             // Label the email as imported
