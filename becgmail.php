@@ -13,8 +13,19 @@ class BECGmailWrapper
      */
     public function __construct()
     {
+        global $verbose;
+
         $client = $this->getClient();
         $this->service = new Google_Service_Gmail($client);
+
+        if ($verbose)
+        {
+            // The PHP API doesn't yet support users getProfile - do it manually
+            $httpRequest = new Google_Http_Request('https://www.googleapis.com/gmail/v1/users/me/profile');
+            $httpRequest = $client->getAuth()->sign($httpRequest);
+            $result = $client->execute($httpRequest);
+            print('Connected to gmail account: ' . $result['emailAddress'] . "\n");
+        }
     }
 
     /**
@@ -25,13 +36,9 @@ class BECGmailWrapper
     function getClient()
     {
         global $ini, $verbose;
+        static $client = NULL;
 
-        if ($verbose > 3)
-        {
-            print("Google APIs application name: $ini[gmail_application_name]\n" .
-                   "Google Gmail client secret file: $ini[gmail_client_secret_path]\n" .
-                   "Google Gmail credentials path: $ini[gmail_credentials_path]\n");
-        }
+        if ($client) return $client;
 
         if (DEBUG)
         {
