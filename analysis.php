@@ -1,10 +1,46 @@
 <?php
 
 /**
- * Return date string for yesterday to use in SQL queries
- * @return string Date yesterday
+ * Function to return a DateTime date in the format required for SQL usage
+ *
+ * @param DateTime $date A DateTime object
+ * @return string
  */
-function getYesterdayForSQL()
+function sqlDateString($date)
+{
+    return '\'' . $date->format('Y-m-d') . '\'';
+}
+
+
+/**
+ * Function to return a DatePeriodfor the specified number of days
+ * forwards or backwards from the given reference DateTime.
+ *
+ * @param DateTime $refDate
+ * @param int $numDays
+ * @param boolean $forwards
+ * @return DatePeriod Date range
+ */
+function dateRange($refDate, $numDays, $forwards = TRUE)
+{
+    global $verbose;
+
+    if (!$forwards)
+    {
+        $refDate->sub(new DateInterval('P' . $numDays . 'D'));
+    }
+
+    return new DatePeriod($refDate, new DateInterval('P1D'), $numDays);
+}
+
+
+/**
+ * Return a DateTime object for yesterday.  Up until 6am we use the day before yesterday to ensure
+ * Simtricity data is present.
+ *
+ * @return DateTime Yesterday
+ */
+function getYesterdayDateTime()
 {
     global $verbose;
 
@@ -15,21 +51,20 @@ function getYesterdayForSQL()
     $dateTime->setTime(0,0);
     $timestamp = time();
     $dayTimestamp = $dateTime->getTimestamp();
+    $day = new DateInterval('P1D');
+    $dateTime->sub($day);
+    // Take off an extra day if before 6am
     if ($timestamp - $dayTimestamp < 6 * 60 * 60)
     {
-        $yesterday = '\'' . date('Y-m-d', strtotime('-2 days', $timestamp)) . '\'';
-    }
-    else
-    {
-        $yesterday = '\'' . date('Y-m-d', strtotime('-1 day', $timestamp)) . '\'';
+        $dateTime->sub($day);
     }
 
     if ($verbose > 3)
     {
-        print(__FUNCTION__ . "(): Date for yesterday = $yesterday\n");
+        print(__FUNCTION__ . '(): Date for yesterday = ' . $dateTime->format('d/m/Y') . "\n");
     }
 
-    return $yesterday;
+    return $dateTime;
 }
 
 
@@ -57,7 +92,7 @@ function zeroPowerYesterday(&$becDB)
                 LEFT JOIN create_centre_meteo_raw ON power.datetime = create_centre_meteo_raw.datetime
             WHERE (weather_filton.sol_rad > " . DECENT_SOLRAD_LIMIT . " OR
                   create_centre_meteo_raw.sol_rad > " . DECENT_SOLRAD_LIMIT . ") AND
-                  DATE(power.datetime) = " . getYesterdayForSQL();
+                  DATE(power.datetime) = " . sqlDateString(getYesterdayDateTime());
     $result = $becDB->fetchQuery($sql);
 
     $anyHits = FALSE;
@@ -85,7 +120,7 @@ function zeroPowerYesterday(&$becDB)
     }
     else if ($verbose)
     {
-        print('No unexpected zero power output readings yesterday (' . getYesterdayForSQL() . ")\n\n");
+        print('No unexpected zero power output readings yesterday (' . sqlDateString(getYesterdayDateTime()) . ")\n\n");
     }
     return $anyHits;
 }
@@ -102,12 +137,12 @@ function missingPowerDataYesterday(&$becDB)
     global $verbose;
 
     $sql = 'SELECT * FROM power
-            WHERE DATE(power.datetime) = ' . getYesterdayForSQL();
+            WHERE DATE(power.datetime) = ' . sqlDateString(getYesterdayDateTime());
     $result = $becDB->fetchQuery($sql);
 
     if (sizeof($result) == 0)
     {
-        ReportLog::append('Simtricity: No power data found for yesterday (' . getYesterdayForSQL() . ")\n");
+        ReportLog::append('Simtricity: No power data found for yesterday (' . sqlDateString(getYesterdayDateTime()) . ")\n");
         ReportLog::setError(TRUE);
 
         // Also report the latest power reading we have got
@@ -165,7 +200,7 @@ function missingPowerDataYesterday(&$becDB)
     }
     else if ($verbose)
     {
-        print('Simtricity: No missing power data for yesterday (' . getYesterdayForSQL() . ")\n\n");
+        print('Simtricity: No missing power data for yesterday (' . sqlDateString(getYesterdayDateTime()) . ")\n\n");
     }
     return $anyHits;
 }
