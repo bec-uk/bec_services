@@ -8,9 +8,10 @@ chdir('..');
 define('DATA_INI_FILENAME', 'data.ini');
 $iniFilename = DATA_INI_FILENAME;
 
-$datasets = array('forecast', 'filton', 'cc');
-$tables = array('weather_forecastio', 'weather_filton', 'create_centre_meteo_raw');
-$supportsDaily = array(1, 0, 0);
+$weatherDatasets = array('forecast', 'filton', 'cc');
+$datasets = array_merge($weatherDatasets, array('simtricity_flows'));
+$tables = array('weather_forecastio', 'weather_filton', 'create_centre_meteo_raw', 'site_extra_info');
+$supportsDaily = array(1, 0, 0, 0);
 
 if (key_exists('dataset', $_GET) &&
     FALSE !== ($dataset = array_search($_GET['dataset'], $datasets)))
@@ -42,56 +43,70 @@ if (key_exists('dataset', $_GET) &&
                        $ini['database_name'], $ini['database_username'],
                        $ini['database_user_password']);
 
-    $sql = 'SELECT * FROM ' . $tables[$dataset];
-
-    $dateOnly = FALSE;
-    $needAnd = FALSE;
-    $needWhere = TRUE;
-    if (key_exists('format', $_GET))
+    $sql = '';
+    if ($_GET['dataset'] == 'simtricity_flows')
     {
-        switch ($_GET['format'])
+        // The Simtricity flows dataset
+        $sql = "SELECT webapp_shortcode, flow_token_gen, flow_token_exp, flow_token_use
+                    FROM $tables[$dataset]";
+        if (key_exists('site_shortcode', $_GET))
         {
-            case 'daily':
-                if ($supportsDaily[$dataset])
-                {
-                    $sql .= '_daily';
-                    $dateOnly = TRUE;
-                }
-                else
-                {
+            $sql .= " WHERE webapp_shortcode = '$_GET[site_shortcode]'";
+        }
+    }
+    else
+    {
+        // Weather datasets
+        $sql = 'SELECT * FROM ' . $tables[$dataset];
+        $dateOnly = FALSE;
+        $needAnd = FALSE;
+        $needWhere = TRUE;
+        if (key_exists('format', $_GET))
+        {
+            switch ($_GET['format'])
+            {
+                case 'daily':
+                    if ($supportsDaily[$dataset])
+                    {
+                        $sql .= '_daily';
+                        $dateOnly = TRUE;
+                    }
+                    else
+                    {
+                        goto html;
+                    }
+                    break;
+                default:
                     goto html;
-                }
-                break;
-            default:
+            }
+        }
+
+        if (key_exists('start', $_GET))
+        {
+            $start = new DateTime($_GET['start'] . ($dateOnly ? 'T00:00' : '') . 'Z');
+            if (!$start)
+            {
                 goto html;
+            }
+            $sql .= ($needWhere ? ' WHERE' : '') .
+                ' date' . ($dateOnly ? '' : 'time') . ' >= \'' . $start->format('Y-m-d' . ($dateOnly ? '' : '\TH:i')) . '\'';
+            $needWhere = FALSE;
+            $needAnd = TRUE;
         }
-    }
 
-    if (key_exists('start', $_GET))
-    {
-        $start = new DateTime($_GET['start'] . ($dateOnly ? 'T00:00' : '') . 'Z');
-        if (!$start)
+        if (key_exists('end', $_GET))
         {
-            goto html;
+            $end = new DateTime($_GET['end'] . ($dateOnly ? 'T00:00' : '') . 'Z');
+            if (!$end)
+            {
+                goto html;
+            }
+            $sql .= ($needWhere ? ' WHERE' : '') .
+                    ($needAnd ? ' AND' : '') .
+                ' date' . ($dateOnly ? '' : 'time') . ' <= \'' . $end->format('Y-m-d' . ($dateOnly ? '' : '\TH:i')) . '\'';
+            $needWhere = FALSE;
+            $needAnd = TRUE;
         }
-        $sql .= ($needWhere ? ' WHERE' : '') .
-        	' date' . ($dateOnly ? '' : 'time') . ' >= \'' . $start->format('Y-m-d' . ($dateOnly ? '' : '\TH:i')) . '\'';
-        $needWhere = FALSE;
-        $needAnd = TRUE;
-    }
-
-    if (key_exists('end', $_GET))
-    {
-        $end = new DateTime($_GET['end'] . ($dateOnly ? 'T00:00' : '') . 'Z');
-        if (!$end)
-        {
-            goto html;
-        }
-        $sql .= ($needWhere ? ' WHERE' : '') .
-                ($needAnd ? ' AND' : '') .
-        	' date' . ($dateOnly ? '' : 'time') . ' <= \'' . $end->format('Y-m-d' . ($dateOnly ? '' : '\TH:i')) . '\'';
-        $needWhere = FALSE;
-        $needAnd = TRUE;
     }
 
     $result = $becDB->fetchQuery($sql);
@@ -100,6 +115,8 @@ if (key_exists('dataset', $_GET) &&
         goto html;
     }
 
+    // Allow other sites to access the data from Javascript
+    header('Access-Control-Allow-Origin: *');
     // Output the retrieved data in JSON form
     header('Content-Type:application/json;charset=utf-8');
     if (!($json = json_encode($result)))
@@ -117,8 +134,9 @@ html:
 <title>BEC database access help</title>
 </head>
 <body>
-Queries are of the following form:<br>
-&nbsp;<code>.../data.php?dataset=(<?php print(implode('|', $datasets));?>
+<p>
+Queries are of the following form for weather datasets:<br>
+&nbsp;<code>.../data.php?dataset=(<?php print(implode('|', $weatherDatasets));?>
 )[&amp;start=&lt;datetime&gt;][&amp;end=&lt;datetime&gt;][&amp;format=daily]</code><br>
 where:
 <ul>
@@ -127,6 +145,15 @@ where:
 <li>a <code>datetime</code> is in the format <code>YYYY-MM-DD[THH:mm]</code> and specified in UTC/GMT - the time must not be specified if <code>format=daily</code> is used</li>
 <li>the default format will be the finest time-grain in the dataset, but 'daily' can be specified to 'zoom out' (only available for forecast.io dataset currently)</li>
 </ul>
+</p>
+<p>
+For the Simtricity flows dataset the query is of the form:<br>
+&nbsp;<code>.../data.php?dataset=simtricity_flows&amp;shortcode=&lt;site_shortcode&gt;</code><br>
+where:
+<ul>
+<li>the <var>site_shortcode</var> is a short string identifier for the site.</li>
+</ul>
+</p>
 <hr>
 <?php
 print("Get array:<br>&nbsp;&nbsp;");
