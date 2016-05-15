@@ -100,7 +100,7 @@ function zeroPowerYesterday(&$becDB)
     {
         foreach ($becDB->getGenMeterArray() as $genMeter)
         {
-            if ($entry[$genMeter] === 0)
+            if ($entry[$genMeter] == 0)
             {
                 if (!$anyHits)
                 {
@@ -108,8 +108,9 @@ function zeroPowerYesterday(&$becDB)
                     ReportLog::append('Unexpected zero power output:' . "\n");
                     ReportLog::setError(TRUE);
                 }
+                $dateTime = new DateTime($entry['datetime']);
                 ReportLog::append("  Meter $genMeter recorded no power output for period ending " .
-                                  $entry['datetime']->format('H:i') . ", but solar radiation readings were CC = " . $entry['sol_rad_cc'] .
+                                  $dateTime->format('H:i') . ", but solar radiation readings were CC = " . $entry['sol_rad_cc'] .
                                   ", Filton = " . $entry['sol_rad_filton'] . "\n");
             }
         }
