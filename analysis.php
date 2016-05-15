@@ -172,8 +172,9 @@ function missingPowerDataYesterday(&$becDB)
                     ReportLog::append('Simtricity: Missing power data:' . "\n");
                     ReportLog::setError(TRUE);
                 }
+                $dateTime->setTimestamp($timestamp);
                 ReportLog::append("  Meter $genMeter has missing power data for period ending " .
-                                  $entry['datetime']->format('H:i') . "\n");
+                                  $dateTime->format('H:i') . "\n");
             }
         }
     }
