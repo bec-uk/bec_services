@@ -21,6 +21,7 @@ static $METER_FLOW_TOKEN = array(// Hamilton House
                                  // Easton Community Centre
                                  '15096967' => 'o3slsz5fazdlfia', // Gen
                                  '15096969' => 'xxgt2dsuziyfc7a',
+                                 '16017854' => 'FIXME: Flow token needs to be extracted from Simtricity when it is given one (then update the $METER_FLOW_TOKEN array)', // Consumption
                                  'EML1325015602' => 'w4h5zzpru5q7wgy', // Gen
                                  'EML1325015594' => 'mqkegznis77lqby', // Gen
                                  'EML1325015592' => 'mrxbc5db2gwipzi'); // Gen
@@ -481,6 +482,12 @@ class BECSimtricity
         if (strlen($flowToken) < 2)
         {
             print('Error: Failed to find flow API token for meter ' . $meterInfo{'code'} . ' - ' . $meterInfo{'serial'} . " - skipping\n");
+            return FALSE;
+        }
+        else if (str_word_count($flowToken) > 1)
+        {
+            // This is not a flow token - print it as an error message
+            print("Error: $flowToken - skipping\n");
             return FALSE;
         }
 
