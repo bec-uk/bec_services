@@ -809,7 +809,7 @@ class BECDB
      */
     public function getGenMeterArray()
     {
-        return array('sbsc', 'hh1', 'myc_gen', 'fh_gen', 'pv2_gen', 'bhcc_gen');
+        return array('sbsc', 'hh1', 'myc_gen', 'fh_gen', 'pv2_gen', 'bhcc_gen', 'kwmc_gen');
     }
 
 
