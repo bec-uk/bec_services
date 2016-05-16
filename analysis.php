@@ -82,7 +82,7 @@ function zeroPowerYesterday(&$becDB)
 
     // TODO: Tune this value to remove false hits; we wouldn't expect any power
     // output when it's really dim...
-    define('DECENT_SOLRAD_LIMIT', 10);
+    define('DECENT_SOLRAD_LIMIT', 30);
 
     $sql = "SELECT power.*,
                    weather_filton.sol_rad AS sol_rad_filton,
@@ -100,7 +100,15 @@ function zeroPowerYesterday(&$becDB)
     {
         foreach ($becDB->getGenMeterArray() as $genMeter)
         {
-            if ($entry[$genMeter] == 0)
+            $dateTime = new DateTime($entry['datetime']);
+            $timestamp = $dateTime->getTimestamp();
+            $sunriseTime = date_sunrise($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
+            $sunsetTime = date_sunset($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
+            if ($verbose > 6)
+            {
+                printf("Checking whether $timestamp is between an hour after sunrise ($sunriseTime) and an hour after sunset ($sunsetTime)\n");
+            }
+            if ($entry[$genMeter] == 0 && $timestamp > $sunriseTime + 60 * 60 && $timestamp < $sunsetTime - 60 * 60)
             {
                 if (!$anyHits)
                 {
@@ -108,7 +116,6 @@ function zeroPowerYesterday(&$becDB)
                     ReportLog::append('Unexpected zero power output:' . "\n");
                     ReportLog::setError(TRUE);
                 }
-                $dateTime = new DateTime($entry['datetime']);
                 ReportLog::append("  Meter $genMeter recorded no power output for period ending " .
                                   $dateTime->format('H:i') . ", but solar radiation readings were CC = " . $entry['sol_rad_cc'] .
                                   ", Filton = " . $entry['sol_rad_filton'] . "\n");
