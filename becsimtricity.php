@@ -484,7 +484,7 @@ class BECSimtricity
             print('Error: Failed to find flow API token for meter ' . $meterInfo{'code'} . ' - ' . $meterInfo{'serial'} . " - skipping\n");
             return FALSE;
         }
-        else if (str_word_count($flowToken) > 1)
+        else if (strstr($flowToken, ' ') != FALSE)
         {
             // This is not a flow token - print it as an error message
             print("Error: $flowToken - skipping\n");
