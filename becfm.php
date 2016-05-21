@@ -27,6 +27,9 @@ error_reporting(E_ALL);
 // Set the timezone for the script to GMT/UTC
 date_default_timezone_set('UTC');
 
+// Change directory to the directory the script is runnign from
+chdir(dirname(__FILE__));
+
 /******************************************************************************
  * Defines and globals
  *****************************************************************************/
@@ -458,6 +461,9 @@ missingPowerDataYesterday($becDB);
 zeroPowerYesterday($becDB);
 $report = ReportLog::get();
 print($report . "\n\n");
+
+// Write it to a local file so we can see it ran
+file_put_contents('last.log', $report);
 
 // Send email report containing report log if there was an error
 if (ReportLog::hasError())
