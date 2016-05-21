@@ -111,6 +111,8 @@ $helpString = "Usage: php $argv[0] <options>\n" .
  * Main (start of code)
  ****************************************************************************/
 
+$startTime = new DateTime();
+
 $deleteCCRMode = FALSE;
 $deleteSimtricityMode = FALSE;
 $readOnlyMode = FALSE;
@@ -449,17 +451,18 @@ if (!$readOnlyMode)
 }
 
 // Reporting
+ReportLog::prepend("BEC Fault Monitoring report log\n" .
+                   "===============================\n\n" .
+                   "Start time: " . $startTime->format('d/m/Y H:i') . " (UTC)\n\n");
 missingPowerDataYesterday($becDB);
 zeroPowerYesterday($becDB);
 $report = ReportLog::get();
-print("Report log:\n$report\n\n");
+print($report . "\n\n");
 
 // Send email report containing report log if there was an error
 if (ReportLog::hasError())
 {
-    $now = new DateTime();
-    $msgBody = array('This is the report log generated at ' . $now->format('d/m/Y H:i') . '\n' .
-                      $report);
+    $msgBody = array($report);
     $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC fault monitoring report', $msgBody);
 }
 

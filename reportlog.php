@@ -10,6 +10,17 @@ class ReportLog
 
 
     /**
+     * Prepend to the report log
+     *
+     * @param string $str
+     */
+    static function prepend($str)
+    {
+         self::$reportLog = $str . self::$reportLog;
+    }
+
+
+   /**
      * Append to the report log
      *
      * @param string $str
