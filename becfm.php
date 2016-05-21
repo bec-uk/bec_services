@@ -74,24 +74,10 @@ require_once 'becfiltonweather.php';
 require_once 'becforecastio.php';
 require_once 'becgmail.php';
 require_once 'becsimtricity.php';
+require_once 'miscfuncs.php';
 require_once 'reportlog.php';
 
 /*****************************************************************************/
-
-/**
- * Expands the home directory alias '~' to the full path.
- * @param string $path the path to expand.
- * @return string the expanded path.
- */
-function expandHomeDirectory($path)
-{
-    $homeDirectory = getenv('HOME');
-    if (empty($homeDirectory))
-    {
-        $homeDirectory = getenv("HOMEDRIVE") . getenv("HOMEPATH");
-    }
-    return str_replace('~', realpath($homeDirectory), $path);
-}
 
 
 // Command line options:

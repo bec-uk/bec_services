@@ -117,6 +117,8 @@ class FiltonCSV
         {
             $dateTime = new DateTime($this->curRow[$this->dateField] . 'T' . $this->curRow[$this->timeField] . 'Z');
         }
+        // Convert from BST to GMT if necessary
+        dateTimeToGMT($dateTime);
         return $dateTime;
     }
 
