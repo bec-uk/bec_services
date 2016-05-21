@@ -24,6 +24,9 @@
 // Report all PHP errors
 error_reporting(E_ALL);
 
+// Set the timezone for the script to GMT/UTC
+date_default_timezone_set('UTC');
+
 /******************************************************************************
  * Defines and globals
  *****************************************************************************/
