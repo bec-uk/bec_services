@@ -145,6 +145,7 @@ where:
 <li>a <code>datetime</code> is in the format <code>YYYY-MM-DD[THH:mm]</code> and specified in UTC/GMT - the time must not be specified if <code>format=daily</code> is used</li>
 <li>the default format will be the finest time-grain in the dataset, but 'daily' can be specified to 'zoom out' (only available for forecast.io dataset currently)</li>
 </ul>
+All dates and times returned are GMT/UTC, so during British Summer Time an hour must be added.
 </p>
 <p>
 For the Simtricity flows dataset the query is of the form:<br>
