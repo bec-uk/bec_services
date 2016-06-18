@@ -1,0 +1,50 @@
+body {
+    padding: 0px;
+}
+
+div
+{
+    width: 100%;
+    scrolling: no;
+    vertical-align: top;
+}
+
+iframe
+{
+    width: 100%;
+    height: 100%;
+    margin: 0px;
+    border: 0;
+}
+
+/* Slideshow container */
+.slideshow-container {
+    max-width: 100%;
+    height: 100%;
+    position: relative;
+    margin: auto;
+}
+
+.mySlides {
+    position: absolute;
+    top: 0px;
+    left: 0px;
+    height: 100%;
+    width: 100%;
+}
+
+/* Fade-In Effect */
+.visible
+{
+    visibility: visible;
+    opacity: 1;
+    transition: opacity 1.5s linear;
+}
+
+/* Fade-Out Effect */
+.hidden
+{
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s 1.5s, opacity 1.5s linear;
+}
