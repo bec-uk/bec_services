@@ -47,7 +47,8 @@ class FiltonCSV
         }
         if ($headerStr === FALSE)
         {
-            die("Error: Unable to find CSV header line in $type\n");
+            print("Error: Unable to find CSV header line in $type\n");
+            return FALSE;
         }
         // To ease column location, strip whitespace and chnage to lower case
         $columns = str_getcsv(str_replace(' ', '', strtolower($headerStr)));
