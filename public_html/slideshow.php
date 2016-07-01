@@ -83,10 +83,10 @@ if ($result[0]['size'] == 0)
 }
 
 // Form our SQL query
-$sql = "SELECT slideshow_urls.url AS url, slideshow_urls.display_period_secs FROM slideshow_site_to_url
-    JOIN slideshow_urls ON slideshow_site_to_url.url_id = slideshow_urls.id
-    WHERE sitecode=\"$sitecode\" OR sitecode=\"all\"
-    ORDER BY slideshow_site_to_url.ordering";
+$sql = "SELECT slideshow_urls.url, slideshow_urls.display_period_secs, slideshow_urls.is_image
+        FROM slideshow_site_to_url JOIN slideshow_urls ON slideshow_site_to_url.url_id = slideshow_urls.id
+        WHERE sitecode=\"$sitecode\" OR sitecode=\"all\"
+        ORDER BY slideshow_site_to_url.ordering";
 $result = runQuery($dbHandle, $sql);
 if (gettype($result) != 'array')
 {
@@ -133,7 +133,19 @@ foreach ($result as $slide)
        seconds for animation time) in a private data attribute called timeout
        for later use by some Javascript.
      */
-    print('            <IFRAME id="slide' . $count . '" scrolling="no" src="' . $slide['url'] . '" data-timeout=' . ($slide['display_period_secs'] * 1000 + 3000) . '></IFRAME>' . "\n");
+    $thisURL = $slide['url'];
+    // Multiply by 1000 to get ms, then add 3000 for the transistion (fade in/out) time
+    $thisDisplayPeriod = $slide['display_period_secs'] * 1000 + 3000;
+    if ($slide['is_image'] == 1)
+    {
+        // It's an image - scale it to fit
+        print('            <img style="height: 100%; width: 100%; object-fit: contain" src="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '>' . "\n");
+    }
+    else
+    {
+        // Not an image - load in an IFRAME
+        print('            <IFRAME id="slide' . $count . '" scrolling="no" src="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '></IFRAME>' . "\n");
+    }
     print('        </div>' . "\n");
     $count++;
 }
