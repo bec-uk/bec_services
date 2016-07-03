@@ -20,18 +20,8 @@ while [[ $SHORTCODE = "" ]]; do
     fi
 done
 
-# Put in a crontab to turn off the display at midnight and wake it up at 8am
-cat > /home/pi/crontab.txt <<-EOF
-# Format: <minute> <hour> <day-of-month> <month> <day-of-week> <command>
-# Ranges and comma-separated lists are allowed
-
-# Force screen off at night
-00 00 * * * xset -display ":0" dpms force off
-
-# Force screen on and disable automatic DPMS in the morning
-00 08 * * * xset -display ":0" dpms force on; xset -display ":0" -dpms
-EOF
-crontab -u pi /home/pi/crontab.txt
+# Write a file containing the shortcode
+echo $SHORTCODE > /home/pi/becshortcode
 
 # Generate the BEC Slideshow URL using SHORTCODE
 BECURL=http://bec-monitoring.spiraledge.co.uk/slideshow.php?$SHORTCODE
@@ -42,9 +32,12 @@ echo Installing packages...
 apt-get -y install iceweasel xdotool unclutter x11vnc
 
 # Try to create directory /home/pi/bin in case it doesn't exist already
-mkdir /home/pi/bin || true > /dev/null 2>&1
+mkdir -p /home/pi/bin
 
+
+##############################################################################
 # Put the following file in /home/pi/bin/bec_slideshow.sh
+##############################################################################
 cat > /home/pi/bin/bec_slideshow.sh <<-EOF
 #!/bin/bash
 
@@ -55,6 +48,17 @@ xset -display ":0" s noblank
 
 # Remove the old mozilla profile so we always start the browser from 'fresh'
 rm -rf ~/.mozilla
+
+# Wait until we can ping the server before launching the browser
+export COUNT=0
+export TEXT="Looking for slide-show server..."
+while ! ping -c1 bec-monitoring.spiraledge.co.uk &>/dev/null; do
+    bash -c "echo 1 ; sleep 5 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --no-cancel --auto-close
+    export COUNT=$(( $COUNT + 1 ))
+    if [ \$COUNT -eq 12 ]; then
+        export TEXT="Looking for slide-show server...but it has been a while - check the network and if it's okay, reboot me"
+    fi
+done
 
 # Launch Iceweasel - Firefox for Debian 
 iceweasel $BECURL &
@@ -68,9 +72,13 @@ xdotool key --clearmodifiers F11
 # Remove the mouse pointer
 unclutter &
 EOF
+##############################################################################
 chmod a+x /home/pi/bin/bec_slideshow.sh
 
+
+##############################################################################
 # Put the following file in /home/pi/.config/autostart/BEC Slideshow.desktop (a 'shortcut' icon)
+##############################################################################
 cat > "/home/pi/.config/autostart/BEC Slideshow.desktop" <<-EOF
 [Desktop Entry]
 Encoding=UTF-8
@@ -88,9 +96,71 @@ MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vn
 StartupWMClass=Iceweasel
 StartupNotify=true
 EOF
+##############################################################################
 
 # Create a link on the desktop too
 ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
 
-# Reboot
+
+##############################################################################
+# Install the update script
+##############################################################################
+cat > "/home/pi/bin/bec_autoupdate.sh" <<-EOF
+#!/bin/bash
+# Update script
+# - pull an update script from bec.sunrise.org.uk
+# - run it as root
+# - reboot
+
+# Exit on error
+set -e
+
+# Extract shortcode from file
+export SHORTCODE=\`cat /home/pi/becshortcode\`
+
+# See which version we are currently - found in /home/pi/becversion
+if [ -f /home/pi/becversion ] ; then
+    export CURVER=\`cat /home/pi/becversion\`
+else
+    export CURVER=0
+fi
+
+# Download file if we can
+wget --unlink -T 60 -O /home/pi/bin/update-\$SHORTCODE.sh http://bec.sunrise.org.uk/bec/updatescripts/update-\$SHORTCODE.sh
+
+# If the version in the file is higher than our current version, run it
+export UPDATEVER=\`grep BEC_VERSION /home/pi/bin/update-\$SHORTCODE.sh | sed -e 's/.*BEC_VERSION *//'\`
+
+if [ \$UPDATEVER -gt \$CURVER ]; then
+    chmod a+x /home/pi/bin/update-\$SHORTCODE.sh
+    sudo /home/pi/bin/update-\$SHORTCODE.sh
+fi
+EOF
+##############################################################################
+chmod a+x /home/pi/bin/bec_autoupdate.sh
+
+
+##############################################################################
+# Put in a crontab to turn off the display at 10pm and wake it up at 8am.
+# We also regularly run our autoupdate.sh script.
+##############################################################################
+cat > /home/pi/crontab.txt <<-EOF
+# Format: <minute> <hour> <day-of-month> <month> <day-of-week> <command>
+# Ranges and comma-separated lists are allowed
+
+# Force screen off at night
+00 22 * * * xset -display ":0" dpms force off
+
+# Force screen on and disable automatic DPMS in the morning
+00 08 * * * xset -display ":0" dpms force on; xset -display ":0" -dpms
+
+# Run auto-update script hourly at 12 minutes past the hour
+12 * * * * /home/pi/bin/bec_autoupdate.sh
+EOF
+##############################################################################
+crontab -u pi /home/pi/crontab.txt
+
+
+# All done - reboot!
+sleep 5
 shutdown -r now
