@@ -89,6 +89,9 @@ sleep 5
 # Press F11 to enter full-screen mode
 xdotool key --clearmodifiers F11
 
+# Move the mouse pointer out of the way
+xdotool mousemove 1 1
+
 # Remove the mouse pointer
 unclutter &
 EOF
