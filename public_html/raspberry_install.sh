@@ -9,6 +9,9 @@ if test `whoami` != "root" ; then
     exit 1
 fi
 
+# Ensure we're using UK local time on the Pi
+cp /usr/share/zoneinfo/Europe/London /etc/localtime
+
 echo "What is the BEC Slideshow short code (short name used in URLs) for the building/site this Raspberry Pi is to be installed in?"
 echo "For example, Hamilton House is hh and South Bristol Sports Centre is sbsc."
 SHORTCODE=""
