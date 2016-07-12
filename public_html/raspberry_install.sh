@@ -16,7 +16,7 @@ echo "What is the BEC Slideshow short code (short name used in URLs) for the bui
 echo "For example, Hamilton House is hh and South Bristol Sports Centre is sbsc."
 SHORTCODE=""
 while [[ $SHORTCODE = "" ]]; do 
-    read -p "Short code: " SHORTCODE
+    read -p "Please enter site short code: " SHORTCODE
     if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] || [[ ! $SHORTCODE =~ ^[A-Za-z0-9]+$ ]] ; then
         echo "Short codes are between 1 and 4 characters long and only contain alphanumeric characters.  '$SHORTCODE' is not a valid short code - please try again."
         SHORTCODE=""
@@ -28,11 +28,11 @@ echo $SHORTCODE > /home/pi/becshortcode
 
 # Generate the BEC Slideshow URL using SHORTCODE
 BECURL=http://bec-monitoring.spiraledge.co.uk/slideshow.php?$SHORTCODE
-echo BEC URL will be $BECURL 
+echo BEC URL will be $BECURL
 
-# Ensure iceweasel, xdotool, unclutter and x11vnc are installed
+# Ensure iceweasel, xdotool and unclutter are installed
 echo Installing packages...
-apt-get -y install iceweasel xdotool unclutter x11vnc
+apt-get -y install iceweasel xdotool unclutter
 
 # Try to create directory /home/pi/bin in case it doesn't exist already
 mkdir -p /home/pi/bin
@@ -54,11 +54,11 @@ rm -rf ~/.mozilla
 
 # Wait until we can ping the server before launching the browser
 export COUNT=0
-export TEXT="Looking for slide-show server..."
+export TEXT="Bristol Energy Cooperative: Looking for slide-show server..."
 while ! ping -c1 bec-monitoring.spiraledge.co.uk &>/dev/null; do
-    bash -c "echo 1 ; sleep 5 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --no-cancel --auto-close
-    export COUNT=$(( $COUNT + 1 ))
-    if [ \$COUNT -eq 12 ]; then
+    bash -c "echo 1 ; sleep 8 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --auto-close --auto-kill
+    export COUNT=\$(( $COUNT + 1 ))
+    if [ \$COUNT -eq 7 ]; then
         export TEXT="Looking for slide-show server...but it has been a while - check the network and if it's okay, reboot me"
     fi
 done
@@ -69,7 +69,7 @@ iceweasel $BECURL &
 # Wait a while to let Iceweasel get going
 sleep 15
 
-# Press F11 to enter fullscreen mode
+# Press F11 to enter full-screen mode
 xdotool key --clearmodifiers F11
 
 # Remove the mouse pointer
@@ -101,7 +101,8 @@ StartupNotify=true
 EOF
 ##############################################################################
 
-# Create a link on the desktop too
+# Create a link on the desktop too (removing any pre-existing one)
+rm -f "/home/pi/Desktop/BEC Slideshow.desktop"
 ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
 
 
@@ -135,8 +136,11 @@ wget --unlink -T 60 -O /home/pi/bin/update-\$SHORTCODE.sh http://bec.sunrise.org
 export UPDATEVER=\`grep BEC_VERSION /home/pi/bin/update-\$SHORTCODE.sh | sed -e 's/.*BEC_VERSION *//'\`
 
 if [ \$UPDATEVER -gt \$CURVER ]; then
+    echo Detected newer version - performing update...
     chmod a+x /home/pi/bin/update-\$SHORTCODE.sh
     sudo /home/pi/bin/update-\$SHORTCODE.sh
+else
+    echo No update found
 fi
 EOF
 ##############################################################################
@@ -165,5 +169,6 @@ crontab -u pi /home/pi/crontab.txt
 
 
 # All done - reboot!
-sleep 5
+echo Rebooting in a few seconds...
+sleep 8
 shutdown -r now
