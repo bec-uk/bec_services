@@ -173,10 +173,10 @@ cat > /home/pi/crontab.txt <<-EOF
 # Ranges and comma-separated lists are allowed
 
 # Force screen off at night
-00 22 * * * xset -display ":0" dpms force off
+00 22 * * * sudo tvservice -o
 
 # Force screen on and disable automatic DPMS in the morning
-00 08 * * * xset -display ":0" dpms force on; xset -display ":0" -dpms
+00 08 * * * sudo bash -c "tvservice -p; chvt 9; chvt 7"
 
 # Run auto-update script hourly at 12 minutes past the hour
 12 * * * * /home/pi/bin/bec_autoupdate.sh
