@@ -72,8 +72,19 @@ done
 # Launch Iceweasel - Firefox for Debian 
 iceweasel $BECURL &
 
-# Wait a while to let Iceweasel get going
-sleep 15
+# Wait for Iceweasel (calls could be iceweasel or firefox) to get going
+export STARTED=0
+while test "\$STARTED" -ne 1 ; do
+    sleep 1
+    if [ 1 -eq \$(xdotool search --onlyvisible --class iceweasel | wc -l) ] ; then
+        export STARTED=1
+    fi
+    if [ 1 -eq \$(xdotool search --onlyvisible --class firefox | wc -l) ] ; then
+        export STARTED=1
+    fi
+done
+# Give it a little longer to settle before going full-screen
+sleep 5
 
 # Press F11 to enter full-screen mode
 xdotool key --clearmodifiers F11
