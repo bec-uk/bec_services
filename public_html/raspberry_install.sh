@@ -32,11 +32,17 @@ echo BEC URL will be $BECURL
 
 # Ensure iceweasel, xdotool and unclutter are installed
 echo Installing packages...
+apt-get update
 apt-get -y install iceweasel xdotool unclutter
+
+# Ensure any logged-in user can use ping
+setcap 'cap_net_raw=+ep' $(which ping)
 
 # Try to create directory /home/pi/bin in case it doesn't exist already
 mkdir -p /home/pi/bin
 
+# Try to create directory /home/pi/.config/autostart in case it doesn't exist already
+mkdir -p /home/pi/.config/autostart
 
 ##############################################################################
 # Put the following file in /home/pi/bin/bec_slideshow.sh
