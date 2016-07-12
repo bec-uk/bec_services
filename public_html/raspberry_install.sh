@@ -12,16 +12,22 @@ fi
 # Ensure we're using UK local time on the Pi
 cp /usr/share/zoneinfo/Europe/London /etc/localtime
 
-echo "What is the BEC Slideshow short code (short name used in URLs) for the building/site this Raspberry Pi is to be installed in?"
-echo "For example, Hamilton House is hh and South Bristol Sports Centre is sbsc."
-SHORTCODE=""
-while [[ $SHORTCODE = "" ]]; do 
-    read -p "Please enter site short code: " SHORTCODE
-    if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] || [[ ! $SHORTCODE =~ ^[A-Za-z0-9]+$ ]] ; then
-        echo "Short codes are between 1 and 4 characters long and only contain alphanumeric characters.  '$SHORTCODE' is not a valid short code - please try again."
-        SHORTCODE=""
-    fi
-done
+# We use a pre-existing SHORTCODE from the environment if there is one in case
+# this is running as an update rather than a fresh install.
+if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] || [[ ! $SHORTCODE =~ ^[A-Za-z0-9]+$ ]] ; then
+    # SHORTCODE from environment was not valid - prompt for one
+    SHORTCODE=""
+    echo "What is the BEC Slideshow short code (short name used in URLs) for the building/site this Raspberry Pi is to be installed in?"
+    echo "For example, Hamilton House is hh and South Bristol Sports Centre is sbsc."
+
+    while [[ $SHORTCODE = "" ]]; do 
+        read -p "Please enter site short code: " SHORTCODE
+        if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] || [[ ! $SHORTCODE =~ ^[A-Za-z0-9]+$ ]] ; then
+            echo "Short codes are between 1 and 4 characters long and only contain alphanumeric characters.  '$SHORTCODE' is not a valid short code - please try again."
+            SHORTCODE=""
+        fi
+    done
+fi
 
 # Write a file containing the shortcode
 echo $SHORTCODE > /home/pi/becshortcode
