@@ -31,6 +31,18 @@ function runQuery($dbHandle, $sql)
     return $result;
 }
 
+/* Function which looks for special tokens in a string and performs string replacement.
+ * The substitution table can be found below ($substTable).
+ */
+function substituteInURL($url, $substTable)
+{
+    foreach ($substTable as $search => $replace)
+    {
+        $url = str_replace($search, $replace, $url);
+    }
+    return $url;
+}
+
 
 // Location to pick up ini file from to override default database access parameters
 chdir('..');
@@ -94,6 +106,9 @@ if (gettype($result) != 'array')
     goto errorMessage;
 }
 
+# Subtitutions table
+$substTable = array("%SITECODE%" => $sitecode);
+
 goto success;
 
 // If something went wrong we end up here
@@ -134,6 +149,8 @@ foreach ($result as $slide)
        for later use by some Javascript.
      */
     $thisURL = $slide['url'];
+    # Perform substiutions on the URL if needed
+    $thisURL = substituteInURL($thisURL, $substTable);
     // Multiply by 1000 to get ms, then add 3000 for the transistion (fade in/out) time
     $thisDisplayPeriod = $slide['display_period_secs'] * 1000 + 3000;
     if ($slide['is_image'] == 1)
