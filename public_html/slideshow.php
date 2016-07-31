@@ -130,13 +130,15 @@ success:
 ?>
 <BODY>
 
-<div style="height:90%">
+<div style="height:100%">
+<!--
     <div style="vertical-align:middle; height:110px">
         <p style="vertical-align:middle; color:#555555; font-size:50px; font-family:Arial; margin-top:0px; margin-bottom:0px;">
             <img id="becLogo" src="bec_logo_100.png" alt="[LOGO]" style="vertical-align:middle">
             <b>Bristol Energy</b> Cooperative
         </p>
     </div>
+-->
     <div class="slideshow-container">
 <?php
 // Put <div>s for each of the slides we'll show in place.  The slides will all be loaded as this page is loaded.
