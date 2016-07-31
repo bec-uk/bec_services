@@ -130,7 +130,7 @@ success:
 ?>
 <BODY>
 
-<div style="height:100%">
+<div style="height:100%; background:url(bec_logo_and_name.png); background-repeat:no-repeat; background-position:center">
 <!--
     <div style="vertical-align:middle; height:110px">
         <p style="vertical-align:middle; color:#555555; font-size:50px; font-family:Arial; margin-top:0px; margin-bottom:0px;">
