@@ -80,8 +80,8 @@ if ($dbHandle === FALSE)
     goto errorMessage;
 }
 
-// First check for a valid site short-code by seeing how many URLs there are for it
-$sql = "SELECT COUNT(1) AS size FROM slideshow_site_to_url WHERE sitecode='$sitecode'";
+// First check for a valid site short-code
+$sql = "SELECT COUNT(1) AS size FROM slideshow_sites WHERE sitecode='$sitecode'";
 $result = runQuery($dbHandle, $sql);
 if (gettype($result) != 'array')
 {
@@ -90,7 +90,7 @@ if (gettype($result) != 'array')
 }
 if ($result[0]['size'] == 0)
 {
-    $errorMessage = "Error: Did not find any URLs for site '$sitecode'\n";
+    $errorMessage = "Error: Did not find '$sitecode' in slideshow_sites table\n";
     goto errorMessage;
 }
 
