@@ -23,7 +23,15 @@ class BECDB
      */
     protected function connect($driver, $host, $dbName, $user, $password)
     {
-        $this->dbHandle = new PDO("$driver: host=$host;dbname=$dbName", $user, $password);
+        $this->dbHandle = FALSE;
+        try
+        {
+            $this->dbHandle = new PDO("$driver:host=$host;dbname=$dbName", $user, $password);
+        }
+        catch (Exception $e)
+        {
+                print('Exception: ' . $e->getMessage() . "\n");
+        }
         if ($this->dbHandle === FALSE)
         {
             echo "Error: Failed to connect to $driver '$dbName' database";

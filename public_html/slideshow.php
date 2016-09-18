@@ -72,8 +72,18 @@ if (file_exists($iniFilename))
     $ini = array_merge($ini, parse_ini_file($iniFilename));
 }
 
-$dbHandle = new PDO($ini['database_type'] . ": host=" . $ini['database_host'] . ";dbname=" . $ini['database_name'],
-                    $ini['database_username'], $ini['database_user_password']);
+$dbHandle = FALSE;
+try
+{
+    $dbHandle = new PDO($ini['database_type'] . ":host=" . $ini['database_host'] . ";dbname=" . $ini['database_name'],
+                        $ini['database_username'], $ini['database_user_password']);
+}
+catch (Exception $e)
+{
+    print('Exception: ' . $e->getMessage());
+    print("<br>");
+}
+
 if ($dbHandle === FALSE)
 {
     $errorMessage = "Error: Failed to connect to " . $ini['database_type'] . " '" . $ini['database_name'] . "' database";
