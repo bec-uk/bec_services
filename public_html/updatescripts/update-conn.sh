@@ -6,7 +6,7 @@
 # The line below is parsed to find out which version this script will update the
 # installation to.  The version number should be an integer and no other line is
 # allowed to contain the BEC-underscore-VERSION tag or the update may fail.
-# BEC_VERSION 2
+# BEC_VERSION 3
 ################################################################################
 
 # Exit the script early if there are any errors
@@ -20,14 +20,14 @@ set -e
 # raspberry_install.sh script with the latest version of it.
 cd /home/pi/bin
 rm -f raspberry_install.sh
-wget http://bec-monitoring.spiraledge.co.uk/raspberry_install.sh
+wget http://livegen.bristolenergy.coop/services/raspberry_install.sh
 chmod a+x raspberry_install.sh
 
 ################################################################################
 # Done!  If we got here, we should have successfully updated: update the number
 # in the becversion file.  The number below should be the same as above.
 ################################################################################
-echo 2 > /home/pi/becversion
+echo 3 > /home/pi/becversion
 
 ################################################################################
 # Final action

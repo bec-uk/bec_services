@@ -33,7 +33,7 @@ fi
 echo $SHORTCODE > /home/pi/becshortcode
 
 # Generate the BEC Slideshow URL using SHORTCODE
-BECURL=http://bec-monitoring.spiraledge.co.uk/slideshow.php?$SHORTCODE
+BECURL=http://livegen.bristolenergy.coop/services/slideshow.php?$SHORTCODE
 echo BEC URL will be $BECURL
 
 # Ensure iceweasel, xdotool and unclutter are installed
@@ -67,7 +67,7 @@ rm -rf ~/.mozilla
 # Wait until we can ping the server before launching the browser
 export COUNT=0
 export TEXT="Bristol Energy Cooperative: Looking for slide-show server..."
-while ! ping -c1 bec-monitoring.spiraledge.co.uk &>/dev/null; do
+while ! ping -c1 livegen.bristolenergy.coop &>/dev/null; do
     bash -c "echo 1 ; sleep 8 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --auto-close --auto-kill
     export COUNT=\$(( $COUNT + 1 ))
     if [ \$COUNT -eq 7 ]; then
