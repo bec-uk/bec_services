@@ -1,6 +1,12 @@
 <?php
 
-$graphsEnabled = include "phpgraphlib/phpgraphlib.php";
+# If it's present, include the graphing library
+$incFile = 'phpgraphlib/phpgraphlib.php';
+$graphsEnabled = FALSE;
+if (file_exists($incFile))
+{
+    $graphsEnabled = include $incFile;
+}
 
 /**
  * Class encapsulating actions on the BEC database
