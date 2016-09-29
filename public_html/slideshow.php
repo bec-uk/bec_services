@@ -44,6 +44,34 @@ function substituteInURL($url, $substTable)
 }
 
 
+/*
+ * Function that logs the time and IP address of each fetch of the page to a file
+ * specific to the site-code used.  The logs are to help us determine whether a
+ * site display is running as they will refetch the page every hour.
+ */
+function writeIPLog($sitecode)
+{
+    $logFilename = "slideshow_fetch_$sitecode.log";
+    $remoteIP = $_SERVER['REMOTE_ADDR'];
+    $fetchInfo = date(DATE_ATOM) . ': ' . $remoteIP . ' (' . gethostbyaddr($remoteIP) . ")\n";
+
+    // If the log file is over 32kB, rename it to have a '.1' on the end of its
+    // name (deleteing any old '.1' file) and we'll start a fresh log file.
+    if (file_exists($logFilename) && filesize($logFilename) > 32 * 1024)
+    {
+        if (file_exists($logFilename . '.1'))
+        {
+            unlink($logFilename . '.1');
+        }
+        rename($logFilename, $logFilename . '.1');
+    }
+
+    file_put_contents($logFilename, $fetchInfo, FILE_APPEND);
+}
+
+
+/******************************************************************************/
+
 // Location to pick up ini file from to override default database access parameters
 chdir('..');
 define('INI_FILENAME', 'slideshow_db.ini');
@@ -178,6 +206,9 @@ foreach ($result as $slide)
     print('        </div>' . "\n");
     $count++;
 }
+
+# Record this page fetch to the IP address log file
+writeIPLog($sitecode);
 ?>
     </div>
 </div>
