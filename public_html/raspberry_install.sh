@@ -64,10 +64,10 @@ xset -display ":0" s noblank
 # Remove the old mozilla profile so we always start the browser from 'fresh'
 rm -rf ~/.mozilla
 
-# Wait until we can ping the server before launching the browser
+# Wait until we can contact the server before launching the browser
 export COUNT=0
 export TEXT="Bristol Energy Cooperative: Looking for slide-show server..."
-while ! ping -c1 livegen.bristolenergy.coop &>/dev/null; do
+while ! wget --spider http://livegen.bristolenergy.coop 2>&1 | grep connected ; do
     bash -c "echo 1 ; sleep 8 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --auto-close --auto-kill
     export COUNT=\$(( $COUNT + 1 ))
     if [ \$COUNT -eq 7 ]; then
