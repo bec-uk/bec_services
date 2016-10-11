@@ -144,6 +144,11 @@ cat > "/home/pi/bin/bec_autoupdate.sh" <<-EOF
 
 # Exit on error
 set -e
+# Echo commands as they are run
+set -x
+
+echo
+echo "***** BEC auto-update starting `date` *****"
 
 # Extract shortcode from file
 export SHORTCODE=\`cat /home/pi/becshortcode\`
@@ -156,14 +161,14 @@ else
 fi
 
 # Download file if we can
-wget --unlink -T 60 -O /home/pi/bin/update-\$SHORTCODE.sh http://bec.sunrise.org.uk/bec/updatescripts/update-\$SHORTCODE.sh
+sudo wget --unlink -T 60 -O /home/pi/bin/update-\$SHORTCODE.sh http://bec.sunrise.org.uk/bec/updatescripts/update-\$SHORTCODE.sh
 
 # If the version in the file is higher than our current version, run it
 export UPDATEVER=\`grep BEC_VERSION /home/pi/bin/update-\$SHORTCODE.sh | sed -e 's/.*BEC_VERSION *//'\`
 
 if [ \$UPDATEVER -gt \$CURVER ]; then
     echo Detected newer version - performing update...
-    chmod a+x /home/pi/bin/update-\$SHORTCODE.sh
+    sudo chmod a+x /home/pi/bin/update-\$SHORTCODE.sh
     sudo /home/pi/bin/update-\$SHORTCODE.sh
 else
     echo No update found
@@ -188,7 +193,10 @@ cat > /home/pi/crontab.txt <<-EOF
 00 08 * * * sudo bash -c "tvservice -p; chvt 9; chvt 7"
 
 # Run auto-update script hourly at 12 minutes past the hour
-12 * * * * /home/pi/bin/bec_autoupdate.sh
+12 * * * * /home/pi/bin/bec_autoupdate.sh 2>&1 | tee -a ~/cron_autoupdate.log
+# Archive old autoupdate log if it's over 32KB
+10 * * * * if [ `du -k -c ~/cron_autoupdate.log |grep total | sed -e 's/ *total//'` -gt 32 ] ; then rm ~/cron_autoupdate.log.1 ; mv ~/cron_autoupdate.log ~/cron_autoupdate.log.1; fi
+
 EOF
 ##############################################################################
 crontab -u pi /home/pi/crontab.txt
