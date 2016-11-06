@@ -247,10 +247,26 @@ function showSlide()
     setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);
 }
 
-//Function to refresh the current page
+// Function to refresh the current page if the server is currently contactable
+// If the page cannot be fetched, we keep don't reload, just keeping the present
+// page displayed.
 function fullReload()
 {
-    window.location.reload(true);
+    // Before we simply reload the page we want make sure it is likely to load as if it
+    // didn't we'd be left with a blank screen which would not refresh again.
+    testFetch = new XMLHttpRequest();
+    testFetch.onload = function()
+    {
+        if (this.status == 200 && this.statusText == 'OK')
+        {
+            // Success - perform the reload
+            window.location.reload(true);
+        }
+        return (this.status);
+    };
+    var quickToFetchURL = window.location.href.slice(0, window.location.href.indexOf('?'));
+    testFetch.open("HEAD", quickToFetchURL);
+    testFetch.send();
 }
 
 // Full refresh of the page each hour so that any changes on the server are reflected
