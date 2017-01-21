@@ -561,29 +561,18 @@ class BECSimtricity
 
 
     /**
-     * Function to retrieve meter data recordings to a table in the BEC database
+     * Function to fetch meter readings from Simtricity.  They come in CSV form.
      *
      * @param resource $becDB The BEC database handle
      * @param string $table Name of table in database
      * @param string $meter Array containing info for this meter
-     * @param DateTime $startDate Don't retrieve date before this date
      */
-    public function updateReadingDataFromSimtricity(&$becDB, $table, $meter, $startDate)
+    public function fetchReadingDataFromSimtricity(&$becDB, $table, $meter)
     {
         global $verbose, $ini;
 
-        // Create the table if needed
-        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
-                                            (datetime DATETIME NOT NULL UNIQUE,
-                                             readingImport FLOAT,
-                                             readingExport FLOAT,
-                                             PRIMARY KEY(datetime))"))
-        {
-            print("Failed to create table '$table'\n");
-            return FALSE;
-        }
-
-        /* Use the Simtricity export API to get half-hourly data in CSV format.
+        /* Use the Simtricity export API to request half-hourly meter readings in
+         * CSV format.
          * These are the 'billing quality' meter readings and although we request
          * half-hourly data, as we only want actual readings (rather than
          * interpolated values which just average over the time-period without
@@ -611,11 +600,44 @@ class BECSimtricity
             {
                 print('No data retrieved for meter ' . $meter['code'] . ' with serial number ' . $meter['serial'] . "\n");
             }
-            return;
+            return FALSE;
         }
         if ($verbose > 0)
         {
             print("done\n");
+        }
+        return $csvData;
+    }
+
+
+    /**
+     * Function to retrieve meter data recordings to a table in the BEC database
+     *
+     * @param resource $becDB The BEC database handle
+     * @param string $table Name of table in database
+     * @param string $meter Array containing info for this meter
+     * @param DateTime $startDate Don't retrieve data before this date
+     */
+    public function updateReadingDataFromSimtricity(&$becDB, $table, $meter, $startDate)
+    {
+        global $verbose, $ini;
+
+        // Create the table if needed
+        if (FALSE === $becDB->exec("CREATE TABLE IF NOT EXISTS $table
+                                            (datetime DATETIME NOT NULL UNIQUE,
+                                             readingImport FLOAT,
+                                             readingExport FLOAT,
+                                             PRIMARY KEY(datetime))"))
+        {
+            print("Failed to create table '$table'\n");
+            return FALSE;
+        }
+
+        $csvData = fetchReadingDataFromSimtricity($becDB, $table, $meter);
+        if ($csvData === FALSE)
+        {
+            /* No data returned */
+            return;
         }
 
         // Add/update the data (Warning: ON DUPLICATE KEY UPDATE is MySQL-specific)
