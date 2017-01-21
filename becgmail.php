@@ -372,7 +372,7 @@ class BECGmailWrapper
             }
             if ($verbose > 2)
             {
-                print("    Date: " . $dateTime->format(DateTime::ISO8601) . '\n');
+                print("    Date: " . $dateTime->format(DateTime::ISO8601) . "\n");
             }
             $msgParts = $payload->getParts();
             if ($verbose > 4)
