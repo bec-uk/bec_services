@@ -132,11 +132,26 @@ if ($result[0]['size'] == 0)
     goto errorMessage;
 }
 
+// Next see if data limits apply at this site (should it include just the 'all' pseudo-site, or
+// both the 'all' pseudo-site and the 'all_no_lim' pseudo-site too?
+$sql = "SELECT data_limits FROM slideshow_sites WHERE sitecode='$sitecode'";
+$result = runQuery($dbHandle, $sql);
+if (gettype($result) != 'array')
+{
+    $errorMessage = $result;
+    goto errorMessage;
+}
+$dataLimits = $result[0]['data_limits'];
+
 // Form our SQL query
 $sql = "SELECT slideshow_urls.url, slideshow_urls.display_period_secs, slideshow_urls.is_image
         FROM slideshow_site_to_url JOIN slideshow_urls ON slideshow_site_to_url.url_id = slideshow_urls.id
-        WHERE sitecode=\"$sitecode\" OR sitecode=\"all\"
-        ORDER BY slideshow_site_to_url.ordering";
+        WHERE sitecode=\"$sitecode\" OR sitecode=\"all\"";
+if ($dataLimits == 0)
+{
+    $sql .= ' OR sitecode="all_no_lim"';
+}
+$sql .= ' ORDER BY slideshow_site_to_url.ordering';
 $result = runQuery($dbHandle, $sql);
 if (gettype($result) != 'array')
 {
