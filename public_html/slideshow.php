@@ -206,17 +206,29 @@ foreach ($result as $slide)
     $thisURL = $slide['url'];
     # Perform substiutions on the URL if needed
     $thisURL = substituteInURL($thisURL, $substTable);
+
+    # During the initial page load we only load the first slide to make the page load
+    # more quickly.  Javascript then loads the rest of them in the background.
+    if ($count == 0)
+    {
+        $urlOnLoad = $thisURL;
+    }
+    else
+    {
+        $urlOnLoad = 'about:blank';
+    }
+
     // Multiply by 1000 to get ms, then add 3000 for the transistion (fade in/out) time
     $thisDisplayPeriod = $slide['display_period_secs'] * 1000 + 3000;
     if ($slide['is_image'] == 1)
     {
         // It's an image - scale it to fit
-        print('            <img style="height: 100%; width: 100%; object-fit: contain" src="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '>' . "\n");
+        print('            <img style="height: 100%; width: 100%; object-fit: contain" src="' . $urlOnLoad . '" data-url="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '>' . "\n");
     }
     else
     {
         // Not an image - load in an IFRAME
-        print('            <IFRAME id="slide' . $count . '" scrolling="no" src="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '></IFRAME>' . "\n");
+        print('            <IFRAME id="slide' . $count . '" scrolling="no" src="' . $urlOnLoad . '" data-url="' . $thisURL . '" data-timeout=' . $thisDisplayPeriod . '></IFRAME>' . "\n");
     }
     print('        </div>' . "\n");
     $count++;
@@ -232,11 +244,38 @@ writeIPLog($sitecode);
 // The index of the slide we're showing
 var slideIndex = 0;
 
+// The index of the slide that next needs loading in the background
+var loadIndex = 1;
+
 // Array of slides
 var slides = document.getElementsByClassName("mySlides");
 
-// Once the page has finished loading, call our cycling slideshow functions to cycle through the slides
-window.onload = function() {setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);};
+// Once the page has finished loading:
+//  - Call the background loader to load the rest of the slides
+//  - Call our cycling slideshow functions to cycle through the slides
+window.onload = function()
+{
+    // Pause for 1 second and load the next slide in the background
+    setTimeout(backgroundLoader, 1000);
+    // Start the slide-show
+    setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);
+};
+
+// Function to background load the slides which were left blank on initial load
+function backgroundLoader()
+{
+    if (loadIndex < slides.length)
+    {
+        // Queue up the loading of the next slide a second after this one is loaded
+        slides[loadIndex].childNodes[1].onload = setTimeout(backgroundLoader, 1000);
+
+        // Trigger the loading of this slide
+        slides[loadIndex].childNodes[1].src = slides[loadIndex].childNodes[1].attributes['data-url'].value;
+
+        // Increment to next slide
+        loadIndex++;
+    }
+}
 
 // Function to hide a slide and show the next after a delay for the hide animation
 function hideSlide()
@@ -263,7 +302,7 @@ function showSlide()
 }
 
 // Function to refresh the current page if the server is currently contactable
-// If the page cannot be fetched, we keep don't reload, just keeping the present
+// If the page cannot be fetched, we don't reload, just keeping the present
 // page displayed.
 function fullReload()
 {
