@@ -161,6 +161,12 @@ if (gettype($result) != 'array')
 
 # Subtitutions table
 $substTable = array("%SITECODE%" => $sitecode);
+if ($dataLimits == 1)
+{
+    // Assume this display is serving it's own pages locally - substitute
+    // livegen.bristolenergy.coop with localhost.
+    $substTable['livegen.bristolenergy.coop'] = 'localhost';
+}
 
 goto success;
 
@@ -323,8 +329,8 @@ function fullReload()
     testFetch.send();
 }
 
-// Full refresh of the page each hour so that any changes on the server are reflected
-window.setInterval("fullReload();", 60 * 60 * 1000);
+// Regular full refresh of the page so that any changes on the server are reflected
+window.setInterval("fullReload();", <?php if ($dataLimits == 1) { print("12 * "); }?>60 * 60 * 1000);
 
 </script>
 
