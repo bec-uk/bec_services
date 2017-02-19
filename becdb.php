@@ -830,6 +830,27 @@ class BECDB
         return array('fh_gen', 'sbsc', 'hh1', 'myc_gen', 'kwmc_gen', 'bhcc_gen', 'pv2_gen',
                      'conn_gen', 'inv_0091_g', 'inv_0092_gen');
     }
+
+
+    /**
+     * Function to return meter info for the generation meter (just one even if there
+     * are several).
+     * FIXME: Cope with multiple generation meters at a single site!
+     *
+     * @return array Array of generation meter info (serial, type and code)
+     */
+    public function getGenMeterInfoForSite($siteCode)
+    {
+        $meter = FALSE;
+        $meterInfo = $this->fetchQuery("SELECT serial, type, code, webapp_shortcode FROM meters JOIN site_extra_info ON meters.siteToken = site_extra_info.token WHERE webapp_shortcode = '$siteCode';");
+        for ($i = 0; $i < count($meterInfo); $i++)
+        {
+            if (in_array($this->meterDBName($meterInfo[$i]['code']), $this->getGenMeterArray()))
+            {
+                $meter = $meterInfo[$i];
+            }
+        }
+        return $meter;
     }
 
 

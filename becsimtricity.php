@@ -567,7 +567,7 @@ class BECSimtricity
      * @param string $table Name of table in database
      * @param string $meter Array containing info for this meter
      */
-    public function fetchReadingDataFromSimtricity(&$becDB, $table, $meter)
+    public function fetchReadingDataFromSimtricity(&$becDB, $table, $meter, &$startDate)
     {
         global $verbose, $ini;
 
@@ -633,7 +633,7 @@ class BECSimtricity
             return FALSE;
         }
 
-        $csvData = fetchReadingDataFromSimtricity($becDB, $table, $meter);
+        $csvData = $this->fetchReadingDataFromSimtricity($becDB, $table, $meter, $startDate);
         if ($csvData === FALSE)
         {
             /* No data returned */
@@ -691,6 +691,38 @@ class BECSimtricity
 
 
     /**
+     * For a given meter, retrieve all it's data following the latest reading
+     * already present in the database.
+     *
+     * @param resource $becDB The BEC database handle
+     * @param resource $meter Array of info for the meter to fetch for
+     */
+    public function updateMeterReadings(&$becDB, &$meter)
+    {
+        $tableName = 'dailyreading_' . $becDB->meterDBName($meter['code']);
+
+        if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
+        {
+            $startDate = $date[1];
+        }
+        else
+        {
+            // Default to the turn of the millenium
+            $startDate = new DateTime('2000-01-01T00:00:00Z');
+        }
+
+        # We only update from Simtricity if it has been more than 24 hours since the last record
+        # was saved.
+        $now = new DateTime();
+        $diff = $now->getTimestamp() - $startDate->getTimestamp();
+        if ($diff > 24 * 60 * 60)
+        {
+            $this->updateReadingDataFromSimtricity($becDB, $tableName, $meter, $startDate);
+        }
+    }
+
+
+    /**
      * For each meter, retrieve all it's data following the latest reading
      * already present in the database.
      *
@@ -702,20 +734,50 @@ class BECSimtricity
 
         foreach ($meterInfo as $meter)
         {
-            $tableName = 'dailyreading_' . $becDB->meterDBName($meter['code']);
-
-            if ($becDB->isTablePresent($tableName) && $becDB->rowsInTable($tableName) > 0 && ($date = $becDB->getDateTimeExtremesFromTable($tableName)))
-            {
-                $startDate = $date[1];
-            }
-            else
-            {
-                // Default to the turn of the millenium
-                $startDate = new DateTime('2000-01-01T00:00:00Z');
-            }
-
-            $this->updateReadingDataFromSimtricity($becDB, $tableName, $meter, $startDate);
+            $this->updateMeterReadings($becDB, $meter);
         }
+    }
+
+
+    /**
+     * For a meter, retrieve all it's power measurements following the last already in the database
+     *
+     * @param resource $becDB The BEC database handle
+     * @param array $meter Array of info on the meter to fetch for
+     */
+    public function updateMeterPowerData(&$becDB, &$meter)
+    {
+        global $verbose;
+
+        // All power values put into same table with different columns for different meters
+        $tableName = 'power';
+        $column = $becDB->meterDBName($meter['code']);
+
+        if ($becDB->isTablePresent($tableName) &&
+            $becDB->tableHasColumn($tableName, $column) &&
+            $becDB->rowsInTable($tableName, $column) > 0 &&
+            ($date = $becDB->getDateTimeExtremesFromTable($tableName, $column)))
+        {
+            $startDate = $date[1];
+            $now = new DateTime();
+            // Skip if latest time is already 24 hours ago or less
+            $secs = $now->getTimestamp() - $startDate->getTimestamp();
+            if ($secs / 60 / 60 <= 24)
+            {
+                if ($verbose > 0)
+                {
+                    print("Table $tableName already up to date for meter " . $meter['code'] . "\n");
+                }
+                return;
+            }
+        }
+        else
+        {
+            // Default to the turn of the millenium
+            $startDate = new DateTime('2000-01-01T00:00:00Z');
+        }
+
+        $this->updatePowerDataFromSimtricity($becDB, $tableName, $meter, $startDate);
     }
 
 
@@ -732,35 +794,7 @@ class BECSimtricity
 
         foreach ($meterInfo as $meter)
         {
-            // All power values put into same table with different columns for different meters
-            $tableName = 'power';
-            $column = $becDB->meterDBName($meter['code']);
-
-            if ($becDB->isTablePresent($tableName) &&
-                $becDB->tableHasColumn($tableName, $column) &&
-                $becDB->rowsInTable($tableName, $column) > 0 &&
-                ($date = $becDB->getDateTimeExtremesFromTable($tableName, $column)))
-            {
-                $startDate = $date[1];
-                $now = new DateTime();
-                // Skip if latest time is already less than 23 hours ago
-                $secs = $now->getTimestamp() - $startDate->getTimestamp();
-                if ($secs / 60 / 60 < 23)
-                {
-                    if ($verbose > 0)
-                    {
-                        print("Table $tableName already up to date for meter " . $meter['code'] . "\n");
-                    }
-                    continue;
-                }
-            }
-            else
-            {
-                // Default to the turn of the millenium
-                $startDate = new DateTime('2000-01-01T00:00:00Z');
-            }
-
-            $this->updatePowerDataFromSimtricity($becDB, $tableName, $meter, $startDate);
+            $this->updateMeterPowerData($becDB, $meter);
         }
     }
 }
