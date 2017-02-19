@@ -30,7 +30,7 @@ if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] ||
 fi
 
 # Write a file containing the shortcode
-echo $SHORTCODE > /home/pi/becshortcode
+sudo -u pi echo $SHORTCODE > /home/pi/becshortcode
 
 # Generate the BEC Slideshow URL using SHORTCODE
 BECURL=http://livegen.bristolenergy.coop/services/slideshow.php?$SHORTCODE
@@ -38,22 +38,26 @@ echo BEC URL will be $BECURL
 
 # Ensure iceweasel, xdotool and unclutter are installed
 echo Installing packages...
-apt-get update
+apt-get -y update
 apt-get -y install iceweasel xdotool unclutter
 
 # Ensure any logged-in user can use ping
 setcap 'cap_net_raw=+ep' $(which ping)
 
+# Disable bluetooth by default
+mv /etc/default/bluetooth /etc/default/bluetooth.old
+cat /etc/default/bluetooth.old | sed -e "s/^BLUETOOTH_ENABLED=1$/BLUETOOTH_ENABLED=0/" > /etc/default/bluetooth
+
 # Try to create directory /home/pi/bin in case it doesn't exist already
-mkdir -p /home/pi/bin
+sudo -u pi mkdir -p /home/pi/bin
 
 # Try to create directory /home/pi/.config/autostart in case it doesn't exist already
-mkdir -p /home/pi/.config/autostart
+sudo -u pi mkdir -p /home/pi/.config/autostart
 
 ##############################################################################
 # Put the following file in /home/pi/bin/bec_slideshow.sh
 ##############################################################################
-cat > /home/pi/bin/bec_slideshow.sh <<-EOF
+sudo -u pi cat > /home/pi/bin/bec_slideshow.sh <<-EOF
 #!/bin/bash
 
 # Prevent DPMS and screen blanking
@@ -108,7 +112,7 @@ chmod a+x /home/pi/bin/bec_slideshow.sh
 ##############################################################################
 # Put the following file in /home/pi/.config/autostart/BEC Slideshow.desktop (a 'shortcut' icon)
 ##############################################################################
-cat > "/home/pi/.config/autostart/BEC Slideshow.desktop" <<-EOF
+sudo -u pi cat > "/home/pi/.config/autostart/BEC Slideshow.desktop" <<-EOF
 [Desktop Entry]
 Encoding=UTF-8
 Name=BEC Slideshow
@@ -129,7 +133,7 @@ EOF
 
 # Create a link on the desktop too (removing any pre-existing one)
 rm -f "/home/pi/Desktop/BEC Slideshow.desktop"
-ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
+sudo -u pi ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
 
 
 ##############################################################################
@@ -179,14 +183,15 @@ chmod a+x /home/pi/bin/bec_autoupdate.sh
 
 
 ##############################################################################
-# Put in a crontab to turn off the display at 10pm and wake it up at 8am.
+# Put in a crontab to turn off the display in the evening and wake it up in
+# the morning.
 # We also regularly run our autoupdate.sh script.
 ##############################################################################
 cat > /home/pi/crontab.txt <<-EOF
 # Format: <minute> <hour> <day-of-month> <month> <day-of-week> <command>
 # Ranges and comma-separated lists are allowed
 
-# Force screen off at night
+# Force screen off in the evening
 00 17 * * * sudo tvservice -o
 
 # Force screen on and disable automatic DPMS in the morning
