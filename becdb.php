@@ -816,14 +816,20 @@ class BECDB
 
     /**
      * Function to return an array containing the meter codes for all generation meters
-     * FIXME: This is current hard-coded - we want to be able to extract it from the
+     * FIXME: This is currently hard-coded - we want to be able to extract it from the
      * database!
+     * FIXME: The 3 old meters at Easton Community Centre are not in the list as they
+     * only give us (manually - read by CePro) monthy readings at the moment.
      *
      * @return array Array of generation meter code (strings)
      */
     public function getGenMeterArray()
     {
-        return array('sbsc', 'hh1', 'myc_gen', 'fh_gen', 'pv2_gen', 'bhcc_gen', 'kwmc_gen');
+        // These are ordered by start date, but this is purely to make it easy to spot
+        // missing ones and should not be relied on by calling functions.
+        return array('fh_gen', 'sbsc', 'hh1', 'myc_gen', 'kwmc_gen', 'bhcc_gen', 'pv2_gen',
+                     'conn_gen', 'inv_0091_g', 'inv_0092_gen');
+    }
     }
 
 
