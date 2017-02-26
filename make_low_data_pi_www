@@ -16,68 +16,77 @@ set -x
 # Usage:
 #    make_low_data_pi_www [pi_ip_address]
 
-if [ -n $1 ]; then
+if [ -n "$1" ]; then
     export PI_IP_ADDR=$1
 fi
 echo PI_IP_ADDR is $PI_IP_ADDR
 
+export CLEAN_AND_BUILD=1
+if [ -n "$2" ]; then
+    export CLEAN_AND_BUILD=$2
+fi
+echo CLEAN_AND_BUILD is $CLEAN_AND_BUILD
+
 mkdir -p /tmp/bec_pi
 pushd /tmp/bec_pi
-rm -rf bec
-rm -rf bec_services
-rm -rf www
 
-#
-# Tim & Tom's generation data website
-#
+if [ $CLEAN_AND_BUILD -eq 1 ] ; then
+    rm -rf bec
+    rm -rf bec_services
+    rm -rf www
 
-git clone git@github.com:spiraledgeuk/bec.git
+    #
+    # Tim & Tom's generation data website
+    #
 
-pushd bec
+    git clone git@github.com:spiraledgeuk/bec.git
 
-git checkout low_data_pi
-sudo npm install -g bower
-sudo npm install -g gulp
-echo "***************************************"
-echo "* Choose angular 1.3.20 when prompted *"
-echo "***************************************"
-npm install
-sudo gem install sass
-gulp build
+    pushd bec
 
-# Fix up retrieval of icons to come from local source
-# Note: Need to impersonate Firefox to get the icons in woff2 format rather than TTF
-wget -O dist/icons --header="User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:51.0) Gecko/20100101 Firefox/51.0" `cat dist/index.html | sed -e 's@^.*\(https://[^"]\+\).*$@\1@'`
+    git checkout low_data_pi
+    sudo npm install -g bower
+    sudo npm install -g gulp
+    echo "***************************************"
+    echo "* Choose angular 1.3.20 when prompted *"
+    echo "***************************************"
+    npm install
+    sudo gem install sass
+    gulp build
 
-mv dist/index.html dist/index.html.old
-cat dist/index.html.old | sed -e "s@https://[^\"]\+@http://localhost/icons@" > dist/index.html
-wget -O dist/icons.woff2 `cat dist/icons | grep url | sed -e "s@.*url(\([^\)]\+\)).*@\1@"`
-mv dist/icons dist/icons.old
-cat dist/icons.old | sed -e "s@url([^)]\+)@url(http://localhost/icons.woff2)@" > dist/icons
+    # Fix up retrieval of icons to come from local source
+    # Note: Need to impersonate Firefox to get the icons in woff2 format rather than TTF
+    wget -O dist/icons --header="User-Agent: Mozilla/5.0 (X11; Ubuntu; Linux i686; rv:51.0) Gecko/20100101 Firefox/51.0" `cat dist/index.html | sed -e 's@^.*\(https://[^"]\+\).*$@\1@'`
 
-# Copy in simtricity token
-# TODO: The token won't be needed here when the data can be pulled out of the local database instead
-cp /mnt/1tb1/devel/bec_src/bec_fault_mon/simtricity_token.txt dist
+    mv dist/index.html dist/index.html.old
+    cat dist/index.html.old | sed -e "s@https://[^\"]\+@http://localhost/icons@" > dist/index.html
+    wget -O dist/icons.woff2 `cat dist/icons | grep url | sed -e "s@.*url(\([^\)]\+\)).*@\1@"`
+    mv dist/icons dist/icons.old
+    cat dist/icons.old | sed -e "s@url([^)]\+)@url(http://localhost/icons.woff2)@" > dist/icons
 
-popd
+    # Copy in simtricity token
+    # TODO: The token won't be needed here when the data can be pulled out of the local database instead
+    cp /mnt/1tb1/devel/bec_src/bec_fault_mon/simtricity_token.txt dist/html
 
-# Creating content for the www directory on the Pi
-mkdir -p www
-mv bec/dist www
-mv www/dist www/html
+    popd
 
-#
-# Add in the services from the bec_services repo...
-#
+    # Creating content for the www directory on the Pi
+    mkdir -p www
+    mv bec/dist www
+    mv www/dist www/html
 
-pushd www
-git clone git@github.com:bec-uk/bec_services.git
-popd
+    #
+    # Add in the services from the bec_services repo...
+    #
+
+    pushd www
+    git clone git@github.com:bec-uk/bec_services.git
+    popd
+fi
 
 # Deploy it if we were given an IP address to copy it to
 if [ -n $PI_IP_ADDR ]; then
-    ssh pi@$PI_IP_ADDR "sudo bash -c 'mkdir -p /var/www; chown pi /var/www'"
-    scp -r www/* www/html/.h* www/html/.h* pi@$PI_IP_ADDR:/var/www
+    ssh pi@$PI_IP_ADDR "sudo bash -c 'mkdir -p /var/www; chown -R pi /var/www'"
+    scp -r www/* www/html/.h* www/html/.h* pi@$PI_IP_ADDR:/var/www || echo Ignoring error
     ssh pi@$PI_IP_ADDR "pushd /var/www/html; ln -s ../bec_services/public_html services ; popd; sudo chown -R www-data /var/www; sudo chgrp -R www-data /var/www"
 fi
 

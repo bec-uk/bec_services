@@ -184,10 +184,15 @@ sudo -u pi mkdir -p /home/pi/.config/autostart
 sudo -u pi cat > /home/pi/bin/bec_slideshow.sh <<-EOF
 #!/bin/bash
 
+# Just in case the IP address of trial.simtricity.com has changed, make sure accesses to
+# it are allowed through the firewall
+sudo ufw allow out to `resolveip -s trial.simtricity.com`
+
 #
 # TODO: Grab the date and time from the local router to update the Pi's clock
+# If we can do this we can disable the NTP
 #
-curl http://192.168.1.1 > dateandtime.txt
+#curl http://192.168.1.1 > dateandtime.txt
 
 # Stop the avahi-daemon (bonjour service)
 sudo service avahi-daemon stop
@@ -213,6 +218,16 @@ while ! wget --spider http://localhost 2>&1 | grep connected ; do
     export COUNT=\$(( $COUNT + 1 ))
     if [ \$COUNT -eq 7 ]; then
         export TEXT="Waiting for local slide-show server to start...but it has been a while - perhaps try rebooting me"
+    fi
+done
+
+export COUNT=0
+export TEXT="Bristol Energy Cooperative: Waiting for Internet availability..."
+while ! wget --spider http://trial.simtricity.com 2>&1 | grep connected ; do
+    bash -c "echo 1 ; sleep 8 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --auto-close --auto-kill
+    export COUNT=\$(( $COUNT + 1 ))
+    if [ \$COUNT -eq 7 ]; then
+        export TEXT="Waiting for Internet access...but it has been a while - perhaps try rebooting the router"
     fi
 done
 
@@ -278,6 +293,16 @@ EOF
 # Create a link on the desktop too (removing any pre-existing one)
 rm -f "/home/pi/Desktop/BEC Slideshow.desktop"
 sudo -u pi ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
+
+# Use ufw to block unwanted traffic
+apt-get install -y ufw
+ufw default deny outgoing
+ufw allow out to `resolveip -s trial.simtricity.com`
+# DNS
+ufw allow out to 0.0.0.0/0 port 53
+# NTP
+ufw allow out to 0.0.0.0/0 port 123
+ufw enable
 
 # All done - reboot!
 echo Rebooting in a few seconds...
