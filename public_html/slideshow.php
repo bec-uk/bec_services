@@ -297,7 +297,21 @@ function fullReload()
         }
         return (this.status);
     };
-    var quickToFetchURL = window.location.href.slice(0, window.location.href.indexOf('?'));
+    var quickToFetchURL =
+<?php
+		if ($dataLimits == 1)
+	    {
+			// Fetch this location just to check Internet is available - we
+			// cannot use the normal location as that is localhost for a low
+			// data display.
+			print("\"http://livegen.bristolenergy.coop/services/empty.html\";");
+	    }
+	    else
+	    {
+			print("window.location.href.slice(0, window.location.href.indexOf('?'));");
+	    }
+?>
+
     testFetch.open("HEAD", quickToFetchURL);
     testFetch.send();
 }
