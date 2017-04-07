@@ -222,6 +222,22 @@ window.onload = function()
     setTimeout(backgroundLoader, 1000);
     // Start the slide-show
     setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);
+
+<?php
+	if ($dataLimits <> 1) goto skipLowDataLogging;
+?>
+    // Low data logging
+    testFetch = new XMLHttpRequest();
+    testFetch.onload = function()
+    {
+        return (this.status);
+    };
+    var quickToFetchURL = <?php print("\"http://livegen.bristolenergy.coop/services/lowdata.php?" . $sitecode . "\";");?>
+    testFetch.open("HEAD", quickToFetchURL);
+    testFetch.send();
+<?php
+    skipLowDataLogging:
+?>
 };
 
 // Function to background load the slides which were left blank on initial load
