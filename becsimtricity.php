@@ -427,7 +427,9 @@ class BECSimtricity
             // The start field is a timestamp in ms, but PHP uses timestamps based in seconds
             $startDate = new DateTime();
             $startDate->setTimestamp($meter->start / 1000);
+            // MySQL doesn't like the trailing timezone
             $dateTimeStr = $startDate->format(DateTime::ISO8601);
+            $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
             if (FALSE == $stmt->execute())
             {
                 print("Error: Failed running insertion '$stmt->queryString'\n");
@@ -537,6 +539,8 @@ class BECSimtricity
         foreach ($data as $entry)
         {
             $dateTimeStr = $entry[0]->format(DateTime::ISO8601);
+            // MySQL doesn't like the trailing timezone
+            $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
             $power = $entry[1];
 
             if (FALSE == $stmt->execute())
@@ -664,6 +668,8 @@ class BECSimtricity
             datetimeToGMT($dateTime);
 
             $dateTimeStr = $dateTime->format(DateTime::ISO8601);
+            // MySQL doesn't like the trailing timezone
+            $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
             $readingImport = $rowCSV[2];
             $readingExport = $rowCSV[3];
 

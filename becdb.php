@@ -376,7 +376,8 @@ class BECDB
             {
                 $dateTime = new DateTime(str_replace('/', '-', $data[0]) . "T" . $data[1]);
                 $dateTimeStr = $dateTime->format(DateTime::ISO8601);
-                //$dateTimeStr = $data[0] . "T" . $data[1] . "Z";
+                // MySQL doesn't like the trailing timezone
+                $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
                 $reading = $data[2];
                 if (DEBUG)
                 {
@@ -438,6 +439,8 @@ class BECDB
             $solarAverage = $solarAccumulator / $count;
             $dateTime = $filtonCSV->getDateTime();
             $dateTimeStr = $dateTime->format(DateTime::ISO8601);
+            // MySQL doesn't like the trailing timezone
+            $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
             if ($verbose > 0)
             {
                 print("\t$dateTimeStr: $solarAverage\n");
@@ -675,6 +678,8 @@ class BECDB
                         print("\t" . $hourDateTime->format('d-m-Y H:i') . ": $summaryText, $iconName, $cloudCover, $visibility\n");
                     }
                     $dateTimeStr = $hourDateTime->format(DateTime::ISO8601);
+                    // MySQL doesn't like the trailing timezone
+                    $dateTimeStr = substr($dateTimeStr, 0, strrpos($dateTimeStr, '+'));
                     if (FALSE == $stmtHourly->execute())
                     {
                         print("Error: Failed running insertion '$stmtHourly->queryString'\n");
