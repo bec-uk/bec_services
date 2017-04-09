@@ -297,7 +297,10 @@ sudo -u pi ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/De
 # Use ufw to block unwanted traffic
 apt-get install -y ufw
 ufw default deny outgoing
+# Access required for data
 ufw allow out to `resolveip -s trial.simtricity.com`
+# Access required for logging
+ufw allow out to `resolveip -s livegen.bristolenergy.coop`
 # DNS
 ufw allow out to 0.0.0.0/0 port 53
 # NTP
