@@ -414,6 +414,10 @@ class BECSimtricity
                 {
                     $siteName = 'Easton Community Centre';
                 }
+                else if (substr($meter->code, 0, 4) == 'ARCH')
+                {
+                    $siteName = 'Architecture Centre';
+                }
                 else
                 {
                     print("Error: Failed to match meter site name for meter number $serial to a site token...continuing...\n");
