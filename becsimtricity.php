@@ -414,11 +414,17 @@ class BECSimtricity
                 {
                     $siteName = 'Easton Community Centre';
                 }
+                else
+                {
+                    print("Error: Failed to match meter site name for meter number $serial to a site token...continuing...\n");
+                    continue;
+                }
             }
             $siteToken = $siteTokenArray[$siteName];
             if (strlen($siteToken) < 2)
             {
-                die("Error: Failed to match meter site name to a site token\n");
+                print("Error: Failed to match meter site name for meter number $serial to a site token...continuing...\n");
+                continue;
             }
             $code = $meter->code;
             $model = $meter->model;
