@@ -21,18 +21,21 @@ static $METER_FLOW_TOKEN = array(// Hamilton House
                                  // Easton Community Centre
                                  '15096967' => 'o3slsz5fazdlfia', // Gen
                                  '15096969' => 'xxgt2dsuziyfc7a',
-                                 '16017854' => 'FIXME: Flow token needs to be extracted from Simtricity when it is given one (then update the $METER_FLOW_TOKEN array)', // Consumption
+                                 '16017854' => 'FIXME: Flow token for meter 16017854 needs to be extracted from Simtricity when it is given one (then update the $METER_FLOW_TOKEN array)', // Consumption
                                  'EML1325015602' => 'w4h5zzpru5q7wgy', // Gen
                                  'EML1325015594' => 'mqkegznis77lqby', // Gen
                                  'EML1325015592' => 'mrxbc5db2gwipzi', // Gen
                                  // Coniston Community Centre
                                  '16017855' => '3jnozfluwzlw5oq', //Gen
+                                 '17018728' => '53or62cqyzavvwy', // Imp/Exp (export from this flow token)
                                  // ACTA Community Theatre
                                  '16017852' => 'ckmmhiuyhqrev7a', // Imp/Exp (export from this flow token)
                                  '16017851' => 'c42c5zrcp4pmnja', //Gen
                                  // Wick Sports Ground
                                  '15096977' => 'sr3ntbwieuzzkpa', // Imp/Exp (export from this flow token)
-                                 '15096976' => '4cq2nbgz6ljugwq' //Gen
+                                 '15096976' => '4cq2nbgz6ljugwq', //Gen
+                                 // Architecture Centre
+                                 '17018727' => 'bn4wdw7rcdexbki' // Imp/Exp (export from this flow token)
                                  );
 
 /**
