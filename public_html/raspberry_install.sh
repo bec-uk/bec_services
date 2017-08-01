@@ -48,6 +48,16 @@ setcap 'cap_net_raw=+ep' $(which ping)
 mv /etc/default/bluetooth /etc/default/bluetooth.old
 cat /etc/default/bluetooth.old | sed -e "s/^BLUETOOTH_ENABLED=1$/BLUETOOTH_ENABLED=0/" > /etc/default/bluetooth
 
+# Some Raspberry Pi 3s may need WiFi power management turned off to make them stable
+# We put a create a post ifup script which can do this, but leave the command commented out
+echo "#!/bin/sh" > /etc/network/if-up.d/disable_wifi_power_man
+echo "# Script to disable WiFi power management at boot-up which may be required for" >> /etc/network/if-up.d/disable_wifi_power_man
+echo "# reliable WiFi on some Raspberry Pi 3 devices" >> /etc/network/if-up.d/disable_wifi_power_man
+echo "" >> /etc/network/if-up.d/disable_wifi_power_man
+echo "# Uncomment the following line to disable WiFi power management" >> /etc/network/if-up.d/disable_wifi_power_man
+echo "#/sbin/iwconfig wlan0 power off" >> /etc/network/if-up.d/disable_wifi_power_man
+chmod +x /etc/network/if-up.d/disable_wifi_power_man
+
 # Try to create directory /home/pi/bin in case it doesn't exist already
 sudo -u pi mkdir -p /home/pi/bin
 
