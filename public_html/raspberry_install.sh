@@ -54,6 +54,10 @@ sudo -u pi mkdir -p /home/pi/bin
 # Try to create directory /home/pi/.config/autostart in case it doesn't exist already
 sudo -u pi mkdir -p /home/pi/.config/autostart
 
+# Disable the Firefox bookmark migration dialog by default
+echo "[XRE]" > /usr/lib/firefox-esr/browser/override.ini
+echo "EnableProfileMigrator=0" >> /usr/lib/firefox-esr/browser/override.ini
+
 ##############################################################################
 # Put the following file in /home/pi/bin/bec_slideshow.sh
 ##############################################################################
