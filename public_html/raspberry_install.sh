@@ -200,7 +200,7 @@ cat > /home/pi/crontab.txt <<-EOF
 # Run auto-update script hourly at 12 minutes past the hour
 12 * * * * /home/pi/bin/bec_autoupdate.sh 2>&1 | tee -a ~/cron_autoupdate.log
 # Archive old autoupdate log if it's over 32KB
-10 * * * * if [ `du -k -c ~/cron_autoupdate.log |grep total | sed -e 's/ *total//'` -gt 32 ] ; then rm ~/cron_autoupdate.log.1 ; mv ~/cron_autoupdate.log ~/cron_autoupdate.log.1; fi
+10 * * * * if [ \`du -k -c ~/cron_autoupdate.log |grep total | sed -e 's/ *total//'\` -gt 32 ] ; then rm ~/cron_autoupdate.log.1 ; mv ~/cron_autoupdate.log ~/cron_autoupdate.log.1; fi
 
 EOF
 ##############################################################################
