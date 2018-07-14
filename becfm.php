@@ -468,7 +468,10 @@ file_put_contents('last.log', $report);
 // Send email report containing report log if there was an error
 if (ReportLog::hasError())
 {
-    $msgBody = array($report);
+	# Replace tabs with &emsp; suitable for HTML (helpful for indent at start of lines)
+	$report = preg_replace('/\t/', '&emsp;', $report);
+
+	$msgBody = array($report);
     $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC fault monitoring report', $msgBody);
 }
 
