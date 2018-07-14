@@ -208,8 +208,8 @@ cat > /home/pi/crontab.txt <<-EOF
 # Force screen off in the evening
 00 17 * * * sudo tvservice -o
 
-# Force screen on and disable automatic DPMS in the morning
-00 09 * * * sudo bash -c "tvservice -p; chvt 9; chvt 7"
+# Reboot in the morning to ensure is works today even if it failed yesterday - will also bring screen on
+00 09 * * * sudo reboot
 
 # Run auto-update script hourly at 12 minutes past the hour
 12 * * * * /home/pi/bin/bec_autoupdate.sh 2>&1 | tee -a ~/cron_autoupdate.log
