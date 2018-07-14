@@ -178,11 +178,12 @@ function missingPowerDataYesterday(&$becDB)
 
     $anyHits = FALSE;
     $period = array();
+    $missing = array();
+    $meterStrings = array();
 
     // First check through the data returned from the database (if any)
     foreach ($result as $entry)
     {
-        $missingCount = 0;
         $dateTime = new DateTime($entry['datetime']);
         $timestamp = $dateTime->getTimestamp();
         $dateTime->setTime(0, 0);
@@ -194,30 +195,46 @@ function missingPowerDataYesterday(&$becDB)
         {
             if ($entry[$genMeter] === NULL)
             {
-                if (!$anyHits)
+                $anyHits = TRUE;
+                if (!array_key_exists($genMeter, $missing) || $missing[$genMeter] == FALSE)
                 {
-                    $anyHits = TRUE;
-                    ReportLog::append('Missing power data during ' . $dateTime->format('d/m/Y') . ":\n");
-                    ReportLog::setError(TRUE);
+                    $missing[$genMeter] = TRUE;
+                    $dateTime->setTimestamp($timestamp);
+                    if (!array_key_exists($genMeter, $meterStrings))
+                    {
+                        $meterStrings[$genMeter] = "";
+                    }
+                    $meterStrings[$genMeter] .= "\t\tFrom period ending " . $dateTime->format('H:i');
                 }
-                $dateTime->setTimestamp($timestamp);
-                if ($missingCount == 0)
+            }
+            else
+            {
+                if (array_key_exists($genMeter, $missing) && $missing[$genMeter] == TRUE)
                 {
-                    ReportLog::append('  Period ending [' .
-                                      $dateTime->format('H:i') . " (UTC)]: $genMeter");
-                    $missingCount++;
-                }
-                else
-                {
-                    ReportLog::append(', ' . $genMeter);
-                    $missingCount++;
+                    $dateTime->setTimestamp($timestamp - 30 * 60);
+                    $meterStrings[$genMeter] .= ' to ' . $dateTime->format('H:i') . "\n";
+                    $missing[$genMeter] = FALSE;
                 }
             }
         }
-        if ($missingCount)
+    }
+    if ($anyHits)
+    {
+        ReportLog::append('Missing power data during ' . $dateTime->format('d/m/Y') . " (UTC times):\n");
+        ReportLog::setError(TRUE);
+        foreach ($becDB->getGenMeterArray() as $genMeter)
         {
-            ReportLog::append("\n");
+            if (array_key_exists($genMeter, $meterStrings))
+            {
+                ReportLog::append("\t" . $genMeter . ":\n" . $meterStrings[$genMeter]);
+                if ($missing[$genMeter] == TRUE)
+                {
+                    ReportLog::append(' to the end of the day');
+                }
+                ReportLog::append("\n");
+            }
         }
+        ReportLog::append("\n");
     }
 
     // Now check whether every half-hour period had an entry in the database at all
