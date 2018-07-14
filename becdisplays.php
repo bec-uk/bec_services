@@ -22,7 +22,7 @@ chdir(dirname(__FILE__));
  * Defines and globals
  *****************************************************************************/
 
-define('DEBUG', TRUE);
+define('DEBUG', FALSE);
 if (DEBUG)
 {
     print("Executing in debug mode\n");
@@ -40,6 +40,7 @@ define('TEMP_DIR', '/tmp');
 // Verbose output?
 $verbose = FALSE;
 
+require_once 'becdb.php';
 require_once 'becgmail.php';
 require_once 'miscfuncs.php';
 require_once 'reportlog.php';
@@ -64,47 +65,59 @@ $helpString = "Usage: php $argv[0] <options>\n" .
 
 
 // Read through the specified log file to the last line of text and report the IP address and date/time
-function reportLatestFetch($displayLogFile)
+function reportLatestFetch($becDB, $displayLogFile, $warnAfterMins)
 {
     // Extract site code from filename
     //  slideshow_fetch_*.log
     $siteCode = str_replace('slideshow_fetch_', '', $displayLogFile);
     $siteCode = str_replace('.log', '', $siteCode);
 
-    $logData = file_get_contents($displayLogFile);
-    $endLoc = strrpos($logData, "\n");
-    $startLoc = strrpos($logData, "\n", -1 * (strlen($logData) - $endLoc + 1));
-    if (!$startLoc)
-    {
-        $startLoc = -1;
-    }
-    if ($endLoc === FALSE)
-    {
-        // No log entry lines found!
-        return;
-    }
-
-    $logEntry = substr($logData, $startLoc + 1, $endLoc);
+    // TODO: Only report errors if the site has a BEC display and it is always on; query database to find out
+    // Check the database to see if the site has an active display we should be checking the status of
+    $monitorSite = $becDB->fetchQuery('SELECT monitor_fetches FROM slideshow_sites WHERE sitecode = "' . $siteCode . '"');
     if (DEBUG)
     {
-        print('Last log entry was: ' . $logEntry . "\n");
+        print($siteCode . ' display monitoring: ' . $monitorSite[0]['monitor_fetches'] . "\n");
     }
+    $monitorSite = $monitorSite[0]['monitor_fetches'];
 
-    // Check age and record as an eroor if last fetch was more than 1 day ago
-    // TODO: Only report errors if the site has a BEC display and it is always on; query database to find out
-    $datetime = new DateTime(substr($logEntry, 0, 25));
-    $now = new DateTime();
-    $oldStr = "\t";
-    if ($datetime->add(new DateInterval('P1D'))->getTimestamp() < $now->getTimestamp())
+    if ($monitorSite == 1 || DEBUG)
     {
-        // The last fetch from this file was more than 1 day old - record it as an error
-        $oldStr = '***';
-        ReportLog::setError(TRUE);
-    }
+        $logData = file_get_contents($displayLogFile);
+        $endLoc = strrpos($logData, "\n");
+        $startLoc = strrpos($logData, "\n", -1 * (strlen($logData) - $endLoc + 1));
+        if (!$startLoc)
+        {
+            $startLoc = -1;
+        }
+        if ($endLoc === FALSE)
+        {
+            // No log entry lines found!
+            return;
+        }
 
-    $ipAddr = substr($logEntry, 27);
-    // ReportLog::append("Site\tLast fetch\t\tOld\tLast IP address\n");
-    ReportLog::append($siteCode . "\t" . $datetime->format('d/M/Y H:m') . "\t" . $oldStr . "\t" . $ipAddr . "\n");
+        $logEntry = substr($logData, $startLoc + 1, $endLoc);
+        if (DEBUG)
+        {
+            print('Last ' . $siteCode . ' log entry was: ' . $logEntry . "\n");
+        }
+
+        // Check age and record as an eroor if last fetch was more given time ago
+        $datetime = new DateTime(substr($logEntry, 0, 25));
+        $datetime2 = clone $datetime;
+        $now = new DateTime();
+        $oldStr = "\t";
+        if ($datetime2->add(new DateInterval('PT' . $warnAfterMins . 'M'))->getTimestamp() < $now->getTimestamp())
+        {
+            // The last fetch from this file was more than the given number of minutes old - record it as an error
+            $oldStr = '***';
+              ReportLog::setError(TRUE);
+        }
+
+        $ipAddr = substr($logEntry, 27);
+        // ReportLog::append("Site\tLast fetch\t\tOld\tLast IP address\n");
+        ReportLog::append($siteCode . "\t" . $datetime->format('d/m/Y H:m') . "\t" . $oldStr . "\t" . $ipAddr . "\n");
+    }
     return;
 }
 
@@ -122,13 +135,13 @@ if ($argc > 1)
     // There were some options/arguments.  Process them...
 
     $parameters = array('h' => 'help',
-                         'i:' => 'ini-file:',
-                         'R' => 'readonly',
-                         'v::' => 'verbose::',
-                         'html-report-dir:',
-                         'no-html-report',
-                         'run-read-only',
-                         'temp-dir');
+                        'i:' => 'ini-file:',
+                        'R' => 'readonly',
+                        'v::' => 'verbose::',
+                        'html-report-dir:',
+                        'no-html-report',
+                        'run-read-only',
+                        'temp-dir');
 
     // Grab command line options into $options
     $options = getopt(implode('', array_keys($parameters)), $parameters);
@@ -267,7 +280,13 @@ if ($argc > 1)
 
 
 // ini contains defaults which can be overriden by the ini file
-$ini = array( // Gmail
+$ini = array( // Database
+              'database_type' => 'mysql',
+              'database_host' => 'localhost',
+              'database_name' => 'bec',
+              'database_username' => 'www-data',
+              'database_user_password' => '',
+              // Gmail
               'gmail_application_name' => 'BEC Fault Monitoring',
               'gmail_credentials_path' => __DIR__ . '/bec_fault_mon.json',
               'gmail_client_secret_path' => __DIR__ . '/client_secret.json',
@@ -285,21 +304,28 @@ else if ($iniFilename != BECDISPLAYS_INI_FILENAME)
     die("Error: Requested ini file '$iniFilename' not found\n");
 }
 
+// Connect to the BEC database
+$becDB = new BECDB($ini['database_type'], $ini['database_host'],
+$ini['database_name'], $ini['database_username'],
+$ini['database_user_password']);
+
 // Get the Gmail API client and construct the service object.
 $gmail = new BECGmailWrapper();
 
 // Reporting
-ReportLog::prepend("BEC Display report log\n" .
-                   "===============================\n\n" .
+ReportLog::prepend("<pre>\n");
+ReportLog::prepend("BEC Display Monitoring Report Log\n" .
+                   "=================================\n" .
                    "Start time: " . $startTime->format('d/M/Y H:i') . " (UTC)\n\n");
 
 ReportLog::append("Site\tLast fetch\t\tOld\tLast IP address\n");
 ReportLog::append("====\t==========\t\t===\t===============\n");
 foreach (glob("slideshow_fetch_*.log") as $logFile)
 {
-    reportLatestFetch($logFile);
+    reportLatestFetch($becDB, $logFile, 240);
 }
 
+ReportLog::append("</pre>\n");
 $report = ReportLog::get();
 print($report . "\n\n");
 
@@ -307,7 +333,7 @@ print($report . "\n\n");
 file_put_contents('lastdisplaycheck.log', $report);
 
 // Send email report containing report log if there was an error
-if (ReportLog::hasError())
+if (ReportLog::hasError() && !$readOnlyMode)
 {
     $msgBody = array($report);
     $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC site display issue report', $msgBody);
