@@ -833,7 +833,7 @@ class BECDB
         // These are ordered by start date, but this is purely to make it easy to spot
         // missing ones and should not be relied on by calling functions.
         return array('fh_gen', 'sbsc', 'hh1', 'myc_gen', 'kwmc_gen', 'bhcc_gen', 'pv2_gen',
-                     'conn_gen', 'inv_0091_g', 'inv_0092_gen');
+                     'conn_gen', 'inv_0091_g', 'inv_0092_gen', 'jsb5', 'jsb7');
     }
 
 
