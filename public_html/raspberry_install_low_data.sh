@@ -222,7 +222,7 @@ while ! wget --spider http://localhost 2>&1 | grep connected ; do
 done
 
 export COUNT=0
-export TEXT="Bristol Energy Cooperative: Waiting for Internet availability..."
+export TEXT="Bristol Energy Cooperative: Waiting for Internet access to grab generation data..."
 while ! wget --spider http://trial.simtricity.com 2>&1 | grep connected ; do
     bash -c "echo 1 ; sleep 8 ; echo 100" | zenity --progress --text="\$TEXT" --pulsate --auto-close --auto-kill
     export COUNT=\$(( $COUNT + 1 ))
