@@ -172,7 +172,7 @@ class BECSimtricity
         {
             // This API returns data in pages - there could be more pages to read!
             $pagesLeft = $jsonObj->pageCount - 1;
-            while ($pagesLeft)
+            while ($pagesLeft > 0)
             {
                 // The order we get the pages doesn't matter; we just merge the meters array in the meterData
                 $pageURL = $url . '&page=' . ($pagesLeft + 1);
