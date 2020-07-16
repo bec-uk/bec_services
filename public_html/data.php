@@ -149,7 +149,7 @@ All dates and times returned are GMT/UTC, so during British Summer Time an hour 
 </p>
 <p>
 For the Simtricity flows dataset the query is of the form:<br>
-&nbsp;<code>.../data.php?dataset=simtricity_flows&amp;site_shortcode=&lt;site_shortcode&gt;</code><br>
+&nbsp;<code>.../data.php?dataset=simtricity_flows[&amp;site_shortcode=&lt;site_shortcode&gt;]</code><br>
 where:
 <ul>
 <li>the <var>site_shortcode</var> is a short string identifier for the site.</li>
