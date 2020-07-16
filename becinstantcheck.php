@@ -346,15 +346,33 @@ print($report . "\n\n");
 // Write it to a local file so we can see it ran
 file_put_contents('becinstantcheck.log', $report);
 
-exit(0); //FIXME: Remove when ready to perform emailing of reports
+// We only want to email the report on error once per day as it could be down for a while once it fails.
+// We also want to email if an existing error disappears.
+$statusStr = file_get_contents('becinstantcheck.status');
 
+if ($statusStr == FALSE)
+{
+    $newDay = TRUE;
+    $lastError = FALSE;
+}
+else
+{
+    $statusArr = str_getcsv($statusStr);
+    $newDay = (strcmp($statusArr[0], $startTime->format('d/m/Y')) != 0);
+    $lastError = (strcmp($statusArr[1], 'ERROR') == 0);
+}
 
 // Send email report containing report log if there was an error
-if (ReportLog::hasError())
+if (ReportLog::hasError() && !$lastError ||
+      ReportLog::hasError() && $newDay ||
+      !ReportLog::hasError() && $lastError)
 {
     $msgBody = array($report);
     $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC instant power generation report', $msgBody);
 }
+
+$statusStr = $startTime->format('d/m/Y') . ',' . (ReportLog::hasError() ? 'ERROR' : 'NO ERROR');
+file_put_contents('becinstantcheck.status', $statusStr);
 
 // TODO: HTML report
 
