@@ -27,7 +27,7 @@ error_reporting(E_ALL);
 // Set the timezone for the script to GMT/UTC
 date_default_timezone_set('UTC');
 
-// Change directory to the directory the script is runnign from
+// Change directory to the directory the script is running from
 chdir(dirname(__FILE__));
 
 /******************************************************************************
@@ -312,7 +312,7 @@ if ($argc > 1)
 }
 
 
-// ini contains defaults which can be overriden by the ini file
+// ini contains defaults which can be overridden by the ini file
 $ini = array(// Database
               'database_type' => 'mysql',
               'database_host' => 'localhost',
