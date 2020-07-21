@@ -7,6 +7,7 @@
 class BECGmailWrapper
 {
     protected $service;
+    protected $apiKey = null;
 
     /**
      * Constructor
@@ -20,10 +21,7 @@ class BECGmailWrapper
 
         if ($verbose)
         {
-            // The PHP API doesn't yet support users getProfile - do it manually
-            $httpRequest = new Google_Http_Request('https://www.googleapis.com/gmail/v1/users/me/profile');
-            $httpRequest = $client->getAuth()->sign($httpRequest);
-            $result = $client->execute($httpRequest);
+            $result = $this->service->users->getProfile("me");
             print('Connected to gmail account: ' . $result['emailAddress'] . "\n");
         }
     }
@@ -40,17 +38,31 @@ class BECGmailWrapper
 
         if ($client) return $client;
 
+        if (isset($ini['gmail_api_key_path']))
+        {
+            $this->apiKey = $this->getAPIKey($ini['gmail_api_key_path']);
+        }
+
         if (DEBUG)
         {
             print("Google APIs application name: $ini[gmail_application_name]\n" .
-                   "Google Gmail client secret file: $ini[gmail_client_secret_path]\n" .
-                   "Google Gmail credentials path: $ini[gmail_credentials_path]\n");
+                  "Google Gmail API key file: $ini[gmail_api_key_path]\n" .
+                  "Google Gmail client secret file: $ini[gmail_client_secret_path]\n" .
+                  "Google Gmail credentials path: $ini[gmail_credentials_path]\n");
+            if (isset($this->apiKey))
+            {
+                print("Google APIs API key: $this->apiKey\n");
+            }
         }
 
         try
         {
             $client = new Google_Client();
             $client->setApplicationName($ini['gmail_application_name']);
+            if (isset($this->apiKey))
+            {
+                $client->setDeveloperKey($this->apiKey);
+            }
             $client->setScopes(GMAIL_SCOPES);
             $client->setAuthConfigFile($ini['gmail_client_secret_path']);
             $client->setLoginHint($ini['gmail_username']);
@@ -66,7 +78,7 @@ class BECGmailWrapper
                 {
                     print("Using existing access token from $credentialsPath\n");
                 }
-                $accessToken = file_get_contents($credentialsPath);
+                $accessToken = json_decode(file_get_contents($credentialsPath), true);
             }
             else
             {
@@ -93,7 +105,7 @@ class BECGmailWrapper
                 {
                     mkdir(dirname($credentialsPath), 0700, true);
                 }
-                file_put_contents($credentialsPath, $accessToken);
+                file_put_contents($credentialsPath, json_encode($accessToken));
                 if ($verbose > 3)
                 {
                     print("Credentials saved to $credentialsPath\n");
@@ -113,18 +125,18 @@ class BECGmailWrapper
                 $accessToken = $client->getAccessToken();
 
                 // Check we've not lost the refresh token
-                if (FALSE == strstr($accessToken, 'refresh_token'))
+                if (!isset($accessToken['refresh_token']))
                 {
                     die("Error: Refreshed access token no longer contains refresh token used to retrieve it\n");
                 }
 
                 if (DEBUG)
                 {
-                    print("Refreshed accesss token:\n");
+                    print("Refreshed access token:\n");
                     print_r($accessToken);
                 }
 
-                file_put_contents($credentialsPath, $accessToken);
+                file_put_contents($credentialsPath, json_encode($accessToken));
             }
         }
         catch (Exception $e)
@@ -134,6 +146,66 @@ class BECGmailWrapper
         return $client;
     }
 
+    /**
+     * Retrieves the GMail API key for accessing the API from the given file.
+     * The file format is simply a text file containing the API key (although we
+     * ignore lines that don't look like tokens too).
+     * Die on failure.
+     *
+     * @param string $filename Name of file to retrieve API key from (optional if it has already been read from the file)
+     * @return string API key as a string
+     */
+    public function getAPIKey($filename = NULL)
+    {
+        if (defined($this->apiKey))
+        {
+            return $this->apiKey;
+        }
+        if ($filename === NULL)
+        {
+            die("Error: No stored API key, and no filename to read it from given\n");
+        }
+        if (!file_exists($filename))
+        {
+            die("Error: File not found trying to read GMail API key - $filename\n");
+        }
+        $inFile = fopen($filename, 'r');
+        $apiKey = NULL;
+        while ($line = fgets($inFile))
+        {
+            // Check the line is long enough
+            if (strlen($line) > 30)
+            {
+                if (1 != preg_match('/^([a-z0-9\-]+)$/i', $line, $matches))
+                {
+                    continue;
+                }
+                if (strlen($matches[0]) > 30)
+                {
+                    $apiKey = $matches[0];
+                    if (DEBUG)
+                    {
+                        print("GMail API key is: $apiKey\n");
+                    }
+                }
+                else if (DEBUG)
+                {
+                    print("Skipping line containing: $line");
+                }
+            }
+            else if (DEBUG)
+            {
+                print("Skipping line containing: $line");
+            }
+        }
+        fclose($inFile);
+        if ($apiKey === NULL)
+        {
+            die("Error: GMail API key not found in '$filename'\n");
+        }
+
+        return $apiKey;
+    }
 
     /**
      * Get list of handles to messages in user's mailbox using the given filter

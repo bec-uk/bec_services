@@ -1,6 +1,6 @@
 {
   "require": {
-    "google/apiclient": "1.0.*@beta",
+    "google/apiclient": "^2.0",
     "vertigolabs/overcast": "dev-master"
   }
 }
