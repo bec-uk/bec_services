@@ -14,13 +14,14 @@ Installation
 ------------
 
 Requirements:
- - PHP 5.x with curl and PDO enabled
+ - PHP 5.x or 7.x with curl and PDO enabled
+   	Install the php-mysql package or you could try: sudo pecl install pdo_mysql
  - The Composer dependency management tool (https://getcomposer.org/)
  - The Google Client Library and the Overcast API which will both be downloaded
    using Composer with the command:
        composer install
- - MySQL database server (by default; PDO may allow use with others, but SQL
-   statements used may need modification in the scripts)
+ - MySQL database server (by default; PDO may allow use with other databases,
+   but SQL statements used may need modification in the scripts)
  - PHPGraphLib if graphing functionality is desired - can be retrieved using
    git with the command:
        git clone https://github.com/elliottb/phpgraphlib.git
@@ -31,7 +32,7 @@ should be configured and usable by the user specified in the becfm.ini file.
 Create Centre meteorological data is expected to be sent in CSV files emailed
 daily to a Gmail account.  For the scripts to retrieve the CSV files and
 import the data, access credentials are required.  To set these up, follow the
-instruction under "Turn on the Gmail API" here:
+instructions under "Turn on the Gmail API" here:
 	https://developers.google.com/gmail/api/quickstart/php
 
 The first time becfm.php is run, it will need you to login to the Google
