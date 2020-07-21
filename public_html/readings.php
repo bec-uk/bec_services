@@ -10,7 +10,7 @@ $iniFilename = DATA_INI_FILENAME;
 
 if (key_exists('meter_code', $_GET))
 {
-    // ini contains defaults which can be overriden by the ini file
+    // ini contains defaults which can be overridden by the ini file
     $ini = array('database_type' => 'mysql',
                  'database_host' => 'localhost',
                  'database_name' => 'bec',

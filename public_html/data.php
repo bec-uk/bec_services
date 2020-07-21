@@ -16,7 +16,7 @@ $supportsDaily = array(1, 0, 0, 0);
 if (key_exists('dataset', $_GET) &&
     FALSE !== ($dataset = array_search($_GET['dataset'], $datasets)))
 {
-    // ini contains defaults which can be overriden by the ini file
+    // ini contains defaults which can be overridden by the ini file
     $ini = array('database_type' => 'mysql',
                  'database_host' => 'localhost',
                  'database_name' => 'bec',

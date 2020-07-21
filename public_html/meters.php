@@ -8,7 +8,7 @@ chdir('..');
 define('DATA_INI_FILENAME', 'data.ini');
 $iniFilename = DATA_INI_FILENAME;
 
-// ini contains defaults which can be overriden by the ini file
+// ini contains defaults which can be overridden by the ini file
 $ini = array('database_type' => 'mysql',
              'database_host' => 'localhost',
              'database_name' => 'bec',

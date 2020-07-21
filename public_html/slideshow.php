@@ -44,7 +44,7 @@ if (count($_GET) != 1)
 // Retrieve the site short-code from the URL that was used to access this page
 $sitecode = key($_GET);
 
-// Default database access parameters which can be overriden by the ini file
+// Default database access parameters which can be overridden by the ini file
 $ini = array('database_type' => 'mysql',
              'database_host' => 'localhost',
              'database_name' => 'bec',

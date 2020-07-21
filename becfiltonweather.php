@@ -50,7 +50,7 @@ class FiltonCSV
             print("Error: Unable to find CSV header line in $type\n");
             return FALSE;
         }
-        // To ease column location, strip whitespace and chnage to lower case
+        // To ease column location, strip whitespace and change to lower case
         $columns = str_getcsv(str_replace(' ', '', strtolower($headerStr)));
 
         if ($arrayMatches = preg_grep('/solar/', $columns))

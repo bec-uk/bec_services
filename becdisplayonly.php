@@ -113,7 +113,7 @@ if ($argc > 1)
     // Error if anything left in $argv
     if (count($argv) > 0)
     {
-        print('Error: Unrecogised command line options: ' . join(' ', $argv) . "\n");
+        print('Error: Unrecognised command line options: ' . join(' ', $argv) . "\n");
         exit(1);
     }
 
@@ -234,7 +234,7 @@ if ($argc > 1)
 }
 
 
-// ini contains defaults which can be overriden by the ini file
+// ini contains defaults which can be overridden by the ini file
 $ini = array(// Database
               'database_type' => 'mysql',
               'database_host' => 'localhost',

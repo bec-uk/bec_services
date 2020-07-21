@@ -26,6 +26,8 @@ function expandHomeDirectory($path)
  * Only call this function on DateTimes created from sources which use local time - if
  * they are already fixed at UTC year-round, this won't know that!
  *
+ * FIXME: Only works for the local times in the London timezone!
+ *
  * @param DateTime $dateTime
  */
 function dateTimeToGMT(&$dateTime)

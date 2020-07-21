@@ -164,7 +164,7 @@ if ($argc > 1)
     // Error if anything left in $argv
     if (count($argv) > 0)
     {
-        print('Error: Unrecogised command line options: ' . join(' ', $argv) . "\n");
+        print('Error: Unrecognised command line options: ' . join(' ', $argv) . "\n");
         exit(1);
     }
 

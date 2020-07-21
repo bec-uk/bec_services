@@ -279,7 +279,7 @@ if ($argc > 1)
 }
 
 
-// ini contains defaults which can be overriden by the ini file
+// ini contains defaults which can be overridden by the ini file
 $ini = array( // Database
               'database_type' => 'mysql',
               'database_host' => 'localhost',

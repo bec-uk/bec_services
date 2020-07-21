@@ -15,7 +15,7 @@ try {
     define('BECFM_INI_FILENAME', 'becfm.ini');
     $iniFilename = BECFM_INI_FILENAME;
 
-    // ini contains defaults which can be overriden by the ini file
+    // ini contains defaults which can be overridden by the ini file
     $ini = array('gmail_credentials_path' => getcwd() . '/bec_fault_mon.json',
                   'gmail_client_secret_path' => getcwd() . '/client_secret.json',
                   'gmail_username' => 'me');
