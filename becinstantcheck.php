@@ -32,7 +32,7 @@ $secondsToUTC = date('Z');
 // Set the timezone for the script to GMT/UTC
 date_default_timezone_set('UTC');
 
-// Change directory to the directory the script is runnign from
+// Change directory to the directory the script is running from
 chdir(dirname(__FILE__));
 
 /******************************************************************************
