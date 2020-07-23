@@ -2,17 +2,21 @@
 <?php
 
 /**
- * Bristol Energy Cooperative PHP script to check generation during the last half-
- * hour where available.
+ * Bristol Energy Cooperative PHP script to check generation during the last hour
+ * where this information is available.
  *
  * This script will:
- *  - Exit with an success status if we are outside daylight hours
- *  - Access the latest half hour of PVOutput data for sites which use it, and ensure:
- *    - The date and time stamps are within half an hour of this system's
- *    - The average power values have not been 0 for all the readings retrieved
- *    Otherwise, it will send an alert email noting the site may be down.
- *  - TODO: Access SolarEdge data for sites which have it available and ensure the site
- *    is generating energy.
+ *  - Exit with an success status if we are outside daylight hours or close to
+ *    sunrise/sunset.
+ *  - Access recent power data (e.g. from PVOutput) and ensure:
+ *    - The date and time stamp of the latest data is within an hour of now
+ *    - The power values have not been 0 for all the recent readings retrieved
+ *    Otherwise, it will send an alert email noting the site has an issue.
+ *
+ *  - TODO: Access SolarEdge data for sites which have it available and ensure the
+ *    site is generating energy.
+ *  - TODO: To cope with sites not in the same timezone as the server this script
+ *    runs on, timezone would need to be parameterised per site.
  *
  * PVOutput:
  *  - GET headers should include X-Pvoutput-Apikey (API key)
@@ -201,6 +205,7 @@ if ($argc > 1)
     {
         // Enable verbose output...we cope with multiple calls, but long
         // options will be ignored if short options were used too.
+        global $verbose;
         if (is_array($verbosity))
         {
             $verbosity = array_reduce($verbosity, 'higherNum');
@@ -235,26 +240,139 @@ if ($argc > 1)
 
 }
 
+
+/**
+ * Check recent generation for a given PVOutput site
+ *
+ * @param string $displayName Display name for the site
+ * @param string $siteID PVOutput.org site ID
+ * @param string $apiKey PVOutput.org API key to use
+ *
+ * @return boolean FALSE for no error, else TRUE
+ */
+function checkPVOutputSite($displayName, $siteID, $apiKey)
+{
+    global $verbose;
+    $result = FALSE;
+
+    // Fetch latest PVOutput data
+    ReportLog::append("Fetching generation data for $displayName\n");
+
+    $url = "https://pvoutput.org/service/r2/getstatus.jsp?sid=$siteID&h=1&asc=0&limit=6";
+    if (DEBUG)
+    {
+        print("\n\nFetching URL: $url\n");
+    }
+    $curlHandle = curl_init($url);
+    curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curlHandle, CURLOPT_HTTPHEADER, array("X-Pvoutput-Apikey: $apiKey"));
+    $data = curl_exec($curlHandle);
+    $errno = curl_errno($curlHandle);
+    curl_close($curlHandle);
+
+    if (DEBUG)
+    {
+        print("Data: " . $data . "\n\n");
+    }
+    if ($errno != 0)
+    {
+        ReportLog::append("  Error: Failed to fetch any generation data (errno $errno)\n");
+        ReportLog::setError(TRUE);
+        $result = TRUE;
+    }
+    else
+    {
+        # Check the data looks right.  It should be of the form:
+        #  YYYYMMDD,HH:mm,<gen_watt_hours>,<gen_watts>,<con_watt_hours>,<con_watts>,<normalised_power_kw/kw>,<temp>,<volts>,...;
+        # The latest reading will be the first read.
+        # The times are in local time and will need the timezone difference to UTC subtracting.
+        $lines = explode(";", $data);
+        $counter = 0;
+        $recordTime = [];
+        $sumPower = 0;
+        foreach ($lines as $line)
+        {
+            $lineParts = explode(",", $line);
+            $dateStr = $lineParts[0];
+            $timeStr = $lineParts[1];
+            $powerStr = $lineParts[3];
+
+            # In local time
+            $recordTime[$counter] = new DateTime($dateStr . 'T' . $timeStr);
+
+            # Subtract time difference to UTC time if there is one
+            if (date('Z'))
+            {
+                # FIXME: Note that this is for the timezone on the server - if this is
+                # different to the timezone of the installation recorded in PVOutput
+                # then it will do the wrong thing...
+                $recordTime[$counter]->modify('-' . date('Z') . ' seconds');
+            }
+
+            $sumPower += $powerStr;
+            if ($verbose > 1)
+            {
+                print($recordTime[$counter]->format('d/m/Y H:i') . ': ' . $powerStr . "\n");
+            }
+            $counter++;
+        }
+
+        # If the latest time was over an hour ago we warn
+        if ($recordTime[0]->getTimestamp() < time() - 60 * 60)
+        {
+            ReportLog::append('  Warning: No generation data since ' . $recordTime[0]->format('d/m/Y H:i') . " (expected every 5 to 10 minutes during daylight) (UTC time)\n");
+            ReportLog::setError(TRUE);
+            $result = TRUE;
+        }
+        else
+        {
+            ReportLog::append('  Last recorded generation data was at ' . $recordTime[0]->format('d/m/Y H:i') . " (UTC time)\n");
+        }
+
+        # If sum of the last few powers recorded is less than .5, send a warning
+        if ($sumPower < 0.5)
+        {
+            ReportLog::append('  Warning: Very low power generation detected; sum of last $counter records is $sumPower during the period from ' . $recordTime[sizeof($lines) - 1]->format('d/m/Y H:i') . " to " . $recordTime[0]->format('d/m/Y H:i') . " (UTC times)\n");
+            ReportLog::setError(TRUE);
+            $result = TRUE;
+        }
+        else
+        {
+            ReportLog::append("  Sum of last $counter recorded power readings: $sumPower\n");
+        }
+    }
+    return $result;
+}
+
+ReportLog::prepend("BEC Instant Power Output Checker\n" .
+    "================================\n\n" .
+    "Start time: " . $startTime->format('d/m/Y H:i') . " (UTC)\n\n");
+
 // Quit without error if not within daylight hours
 
-// Work out when sunrise and sunset are - we'll ignore any zero power readings close to them
+// Work out when sunrise and sunset are - we'll skip checking if close to them
 $timestamp = time();
 $sunriseTime = date_sunrise($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
 $sunsetTime = date_sunset($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
 
+# Site status array to build up; compare with last run when deciding whether to email
+$siteStatus = [];
+
 if ($timestamp < $sunriseTime + 60 * 60)
 {
-    ReportLog::append("Info: Before sunrise or the sun has been up for less than 1 hour - skipping check\n");
-    ReportLog::append("      Sunrise time is " . gmdate('d/m/Y H:i', $sunriseTime) . " (UTC)");
+    print("Info: Before sunrise or the sun has been up for less than 1 hour - skipping check\n");
+    print("      Sunrise time is " . gmdate('d/m/Y H:i', $sunriseTime) . " (UTC)\n\n");
+    exit(0);
 }
 else if ($timestamp > $sunsetTime - 30 * 60)
 {
-    ReportLog::append("Info: After sunset or sunset within 30 minutes - skipping check\n");
-    ReportLog::append("      Sunset time is " . gmdate('d/m/Y H:i', $sunsetTime) . " (UTC)");
+    print("Info: After sunset or sunset within 30 minutes - skipping check\n");
+    print("      Sunset time is " . gmdate('d/m/Y H:i', $sunsetTime) . " (UTC)\n\n");
+    exit(0);
 }
 else
 {
-    // ini contains defaults which can be overriden by the ini file
+    // ini contains defaults which can be overridden by the ini file
     $ini = array(// Database
                   'database_type' => 'mysql',
                   'database_host' => 'localhost',
@@ -267,7 +385,11 @@ else
                   'gmail_client_secret_path' => __DIR__ . '/client_secret.json',
                   'gmail_username' => 'me',
                   'gmail_from' => 'becmonitoring@gmail.com',
-                  );
+                  // PVOutput.org
+                  'pvoutput_site_displayname_csv' => 'Hamilton House - Bristol',
+                  'pvoutput_site_id_csv' => '26297',
+                  'pvoutput_api_key_csv' => 'bristolenergycoop',
+    );
 
     // Read configuration from ini file to override defaults
     if (file_exists($iniFilename))
@@ -282,63 +404,54 @@ else
     // Email support: get the Gmail API client and construct the service object.
     $gmail = new BECGmailWrapper();
 
-    // Fetch latest PVOutput data
-    $pvOutputAPIKey = "bristolenergycoop";
-    $hamHouseSiteID = "26297";
-    $curlHandle = curl_init("https://pvoutput.org/service/r2/getstatus.jsp?sid=$hamHouseSiteID&h=1&asc=0&limit=6");
-    curl_setopt($curlHandle, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($curlHandle, CURLOPT_HTTPHEADER, array("X-Pvoutput-Apikey: $pvOutputAPIKey"));
-    $data = curl_exec($curlHandle);
-    $errno = curl_errno($curlHandle);
-    curl_close($curlHandle);
+    $pvOutputSiteDisplayNames = str_getcsv($ini['pvoutput_site_displayname_csv']);
+    $pvOutputSiteIDs = str_getcsv($ini['pvoutput_site_id_csv']);
+    $pvOutputAPIKeys = str_getcsv($ini['pvoutput_api_key_csv']);
 
-    if (DEBUG)
+    if (count($pvOutputSiteDisplayNames) != count($pvOutputSiteIDs) || count($pvOutputSiteIDs) != count($pvOutputAPIKeys))
     {
-        print("\n\n" . $data . "\n\n");
+        die("Error: PVOutput.org info incorrect:\n" .
+            "  Site Display Names: " . count($pvOutputSiteDisplayNames) . "\n" .
+            "  Site IDs: " . count($pvOutputSiteIDs) . "\n" .
+            "  API Keys: " . count($pvOutputAPIKeys) . "\n");
     }
-    if ($errno != 0)
-    {
-        ReportLog::append("Error: Failed to fetch any generation data (errno $errno)\n");
-        ReportLog::setError(TRUE);
-    }
-    else
-    {
-        # Check the data looks right.  It should be of the form:
-        #  YYYYMMDD,HH:mm,<gen_watt_hours>,<gen_watts>,<con_watt_hours>,<con_watts>,<normalised_power_kw/kw>,<temp>,<volts>,...;
-        # The latest reading will be the first read.
-        $lines = explode(";", $data);
-        $counter = 0;
-        $sumPower = 0;
-        foreach ($lines as $line)
-        {
-            $lineParts = explode(",", $line);
-            $dateStr = $lineParts[0];
-            $timeStr = $lineParts[1];
-            $powerStr = $lineParts[3];
 
-            $recordTime[$counter] = mktime(substr($timeStr, 0, 2), substr($timeStr, 3, 2), 0, substr($dateStr, 4, 2), substr($dateStr, 6, 2), substr($dateStr, 0, 4));
-            $counter++;
-            $sumPower += $powerStr;
-        }
-
-        # If the latest time was over an hour ago we warn
-        if ($recordTime[0] < time() - 60 * 60)
-        {
-            ReportLog::append('Warning: No generation data since ' . gmdate('d/m/Y H:i', $recordTime[0]) . " (expected every 5 to 10 minutes during daylight) (UTC time)\n");
-            ReportLog::setError(TRUE);
-        }
-        if ($sumPower < 0.1)
-        {
-            ReportLog::append('Warning: Very low power generation detected: $sumPower kWh during period from ' . gmdate('d/m/Y H:i', $recordTime[sizeof($lines) - 1]) . " to " . gmdate('d/m/Y H:i', $recordTime[0]) . " (UTC times)\n");
-            ReportLog::setError(TRUE);
-        }
+    for ($i = 0; $i < count($pvOutputSiteDisplayNames); $i++)
+    {
+        $res = checkPVOutputSite($pvOutputSiteDisplayNames[$i], $pvOutputSiteIDs[$i], $pvOutputAPIKeys[$i]);
+        $siteStatus[$pvOutputSiteDisplayNames[$i]] = $res === FALSE ? "NO ERROR" : "ERROR";
+        ReportLog::append('  Check result: ' . $siteStatus[$pvOutputSiteDisplayNames[$i]] . "\n\n");
     }
 }
 
 // Reporting
-ReportLog::prepend("BEC Instant Power Output Checker\n" .
-                   "================================\n\n" .
-                   "Start time: " . $startTime->format('d/m/Y H:i') . " (UTC)\n\n");
+
+// We only want to email the report on the first error in a new day or if site status has changed
+$statusStr = file_get_contents('becinstantcheck.status');
+
+if ($statusStr == FALSE)
+{
+    $newDay = TRUE;
+    $siteStatusChanged = FALSE;
+}
+else
+{
+    $lineBreakPos = strpos($statusStr, "\n");
+    $lastRecordDate = substr($statusStr, 0, $lineBreakPos);
+    $newDay = (strcmp($lastRecordDate, $startTime->format('d/m/Y')) != 0);
+
+    $oldSiteStatus = json_decode(substr($statusStr, $lineBreakPos + 1), TRUE);
+    $siteStatusChanged = $siteStatus != $oldSiteStatus;
+}
+
+if (!ReportLog::hasError())
+{
+    ReportLog::append("No errors detected for any sites\n");
+    if ($siteStatusChanged)
+    {
+        ReportLog::append(" - Previous error(s) recorded at " . $statusArr[0] . " have cleared.\n");
+    }
+}
 
 $report = ReportLog::get();
 print($report . "\n\n");
@@ -346,32 +459,19 @@ print($report . "\n\n");
 // Write it to a local file so we can see it ran
 file_put_contents('becinstantcheck.log', $report);
 
-// We only want to email the report on error once per day as it could be down for a while once it fails.
-// We also want to email if an existing error disappears.
-$statusStr = file_get_contents('becinstantcheck.status');
-
-if ($statusStr == FALSE)
-{
-    $newDay = TRUE;
-    $lastError = FALSE;
-}
-else
-{
-    $statusArr = str_getcsv($statusStr);
-    $newDay = (strcmp($statusArr[0], $startTime->format('d/m/Y')) != 0);
-    $lastError = (strcmp($statusArr[1], 'ERROR') == 0);
-}
-
-// Send email report containing report log if there was an error
-if (ReportLog::hasError() && !$lastError ||
-      ReportLog::hasError() && $newDay ||
-      !ReportLog::hasError() && $lastError)
+// Send email report containing report log if site status has changed or there is an error and it's a new day
+if ($siteStatusChanged ||
+    ReportLog::hasError() && $newDay)
 {
     $msgBody = array($report);
     $gmail->sendEmail($ini['email_reports_to'], '', '', 'BEC instant power generation report', $msgBody);
 }
+else
+{
+    print("Email not sent\n\n");
+}
 
-$statusStr = $startTime->format('d/m/Y') . ',' . (ReportLog::hasError() ? 'ERROR' : 'NO ERROR');
+$statusStr = $startTime->format('d/m/Y') . "\n" . json_encode($siteStatus);
 file_put_contents('becinstantcheck.status', $statusStr);
 
 // TODO: HTML report
