@@ -110,8 +110,11 @@ function zeroPowerYesterday(&$becDB)
         {
             $dateTime = new DateTime($entry['datetime']);
             $timestamp = $dateTime->getTimestamp();
-            # Note: The === below is necessary as otherwise NULL/uninitialised data would also match
-            if ($entry[$genMeter] === 0 && $timestamp > $sunriseTime + $ignoreWithin && $timestamp < $sunsetTime - $ignoreWithin)
+            # Note: The === below is necessary as otherwise NULL/uninitialised data would also match.
+            # We need to ensure the power reading is treated as a number by adding 0 (which will result
+            # in it being a non-floating point number if data is not present, or floating-point if it
+            # is), and that we compare with floating-point 0.0.
+            if (($entry[$genMeter] + 0) === 0.0 && $timestamp > $sunriseTime + $ignoreWithin && $timestamp < $sunsetTime - $ignoreWithin)
             {
                 if (!$anyHits)
                 {
