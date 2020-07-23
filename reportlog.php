@@ -32,6 +32,16 @@ class ReportLog
 
 
     /**
+     * Clear the report log and any error
+     */
+    static function clear()
+    {
+        self::$reportLog = '';
+        self::$errorInReport = FALSE;
+    }
+
+
+    /**
      * Get the report log
      */
     static function get()
