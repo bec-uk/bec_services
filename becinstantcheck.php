@@ -27,6 +27,8 @@
 // Report all PHP errors
 error_reporting(E_ALL);
 
+$secondsToUTC = date('Z');
+
 // Set the timezone for the script to GMT/UTC
 date_default_timezone_set('UTC');
 
@@ -252,7 +254,7 @@ if ($argc > 1)
  */
 function checkPVOutputSite($displayName, $siteID, $apiKey)
 {
-    global $verbose;
+    global $verbose, $secondsToUTC;
     $result = FALSE;
 
     // Fetch latest PVOutput data
@@ -301,12 +303,12 @@ function checkPVOutputSite($displayName, $siteID, $apiKey)
             $recordTime[$counter] = new DateTime($dateStr . 'T' . $timeStr);
 
             # Subtract time difference to UTC time if there is one
-            if (date('Z'))
+            if ($secondsToUTC)
             {
                 # FIXME: Note that this is for the timezone on the server - if this is
                 # different to the timezone of the installation recorded in PVOutput
                 # then it will do the wrong thing...
-                $recordTime[$counter]->modify('-' . date('Z') . ' seconds');
+                $recordTime[$counter]->modify("-$secondsToUTC seconds");
             }
 
             $sumPower += $powerStr;
@@ -449,7 +451,7 @@ if (!ReportLog::hasError())
     ReportLog::append("No errors detected for any sites\n");
     if ($siteStatusChanged)
     {
-        ReportLog::append(" - Previous error(s) recorded at " . $statusArr[0] . " have cleared.\n");
+        ReportLog::append(" - Previous error(s) recorded at $lastRecordDate have cleared.\n");
     }
 }
 
