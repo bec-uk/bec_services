@@ -331,10 +331,11 @@ function checkPVOutputSite($displayName, $siteID, $apiKey)
             ReportLog::append('  Last recorded generation data was at ' . $recordTime[0]->format('d/m/Y H:i') . " (UTC time)\n");
         }
 
-        # If sum of the last few powers recorded is less than .5, send a warning
+        # If sum of the last few powers recorded is less than 0.5, send a warning.
+        # TODO: Vary this limit based on hours from sunrise/sunset.
         if ($sumPower < 0.5)
         {
-            ReportLog::append('  Warning: Very low power generation detected; sum of last $counter records is $sumPower during the period from ' . $recordTime[sizeof($lines) - 1]->format('d/m/Y H:i') . " to " . $recordTime[0]->format('d/m/Y H:i') . " (UTC times)\n");
+            ReportLog::append("  Warning: Very low power generation detected; sum of last $counter records is $sumPower during the period from " . $recordTime[sizeof($lines) - 1]->format('d/m/Y H:i') . " to " . $recordTime[0]->format('d/m/Y H:i') . " (UTC times)\n");
             ReportLog::setError(TRUE);
             $result = TRUE;
         }
@@ -357,12 +358,17 @@ $timestamp = time();
 $sunriseTime = date_sunrise($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
 $sunsetTime = date_sunset($timestamp, SUNFUNCS_RET_TIMESTAMP, FORECAST_IO_LAT, FORECAST_IO_LONG);
 
+if ($verbose > 2)
+{
+    print("Sunrise & sunset times (UTC): " . gmdate('d/m/Y H:i', $sunriseTime) . " - " . gmdate('d/m/Y H:i', $sunsetTime) . "\n\n");
+}
+
 # Site status array to build up; compare with last run when deciding whether to email
 $siteStatus = [];
 
-if ($timestamp < $sunriseTime + 60 * 60)
+if ($timestamp < $sunriseTime + 90 * 60)
 {
-    print("Info: Before sunrise or the sun has been up for less than 1 hour - skipping check\n");
+    print("Info: Before sunrise or the sun has been up for less than 1.5 hours - skipping check\n");
     print("      Sunrise time is " . gmdate('d/m/Y H:i', $sunriseTime) . " (UTC)\n\n");
     exit(0);
 }
