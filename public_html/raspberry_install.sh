@@ -7,10 +7,18 @@ if test `whoami` != "root" ; then
     echo "This script must be run as a superuser; launch it with:"
     echo "    sudo $0"
     exit 1
+elif [ `echo $SUDO_USER | wc -w` -ne 1 ] ; then
+    echo Could not identify normal login user using the environment variable SUDO_USER - stopping
+    exit 1
 fi
 
 # Ensure we're using UK local time on the Pi
-cp /usr/share/zoneinfo/Europe/London /etc/localtime
+if diff /usr/share/zoneinfo/Europe/London /etc/localtime; then
+    echo Already using UK timezone
+else
+    echo Updating to use UK timezone
+    cp /usr/share/zoneinfo/Europe/London /etc/localtime
+fi
 
 # We use a pre-existing SHORTCODE from the environment if there is one in case
 # this is running as an update rather than a fresh install.
@@ -30,16 +38,16 @@ if [ `echo $SHORTCODE | wc -m` -lt 2 ] || [ `echo $SHORTCODE | wc -m` -gt 5 ] ||
 fi
 
 # Write a file containing the shortcode
-sudo -u pi echo $SHORTCODE > /home/pi/becshortcode
+sudo -u $SUDO_USER echo $SHORTCODE > /home/$SUDO_USER/becshortcode
 
 # Generate the BEC Slideshow URL using SHORTCODE
 BECURL=http://livegen.bristolenergy.coop/services/slideshow.php?$SHORTCODE
 echo BEC URL will be $BECURL
 
-# Ensure iceweasel, xdotool and unclutter are installed
+# Ensure firefox-esr, xdotool and unclutter are installed
 echo Installing packages...
 apt-get -y update
-apt-get -y install iceweasel xdotool unclutter
+apt-get -y install firefox-esr xdotool unclutter
 
 # Ensure any logged-in user can use ping
 setcap 'cap_net_raw=+ep' $(which ping)
@@ -58,20 +66,20 @@ echo "# Uncomment the following line to disable WiFi power management" >> /etc/n
 echo "#/sbin/iwconfig wlan0 power off" >> /etc/network/if-up.d/disable_wifi_power_man
 chmod +x /etc/network/if-up.d/disable_wifi_power_man
 
-# Try to create directory /home/pi/bin in case it doesn't exist already
-sudo -u pi mkdir -p /home/pi/bin
+# Try to create directory /home/$SUDO_USER/bin in case it doesn't exist already
+sudo -u $SUDO_USER mkdir -p /home/$SUDO_USER/bin
 
-# Try to create directory /home/pi/.config/autostart in case it doesn't exist already
-sudo -u pi mkdir -p /home/pi/.config/autostart
+# Try to create directory /home/$SUDO_USER/.config/autostart in case it doesn't exist already
+sudo -u $SUDO_USER mkdir -p /home/$SUDO_USER/.config/autostart
 
 # Disable the Firefox bookmark migration dialog by default
 echo "[XRE]" > /usr/lib/firefox-esr/browser/override.ini
 echo "EnableProfileMigrator=0" >> /usr/lib/firefox-esr/browser/override.ini
 
 ##############################################################################
-# Put the following file in /home/pi/bin/bec_slideshow.sh
+# Put the following file in /home/$SUDO_USER/bin/bec_slideshow.sh
 ##############################################################################
-sudo -u pi cat > /home/pi/bin/bec_slideshow.sh <<-EOF
+sudo -u $SUDO_USER cat > /home/$SUDO_USER/bin/bec_slideshow.sh <<-EOF
 #!/bin/bash
 
 # Prevent DPMS and screen blanking
@@ -93,16 +101,13 @@ while ! wget --spider http://livegen.bristolenergy.coop 2>&1 | grep connected ; 
     fi
 done
 
-# Launch Iceweasel - Firefox for Debian 
-iceweasel $BECURL &
+# Launch Firefox
+firefox $BECURL &
 
-# Wait for Iceweasel (calls could be iceweasel or firefox) to get going
+# Wait for Firefox to get going
 export STARTED=0
 while test "\$STARTED" -ne 1 ; do
     sleep 1
-    if [ 1 -eq \$(xdotool search --onlyvisible --class iceweasel | wc -l) ] ; then
-        export STARTED=1
-    fi
     if [ 1 -eq \$(xdotool search --onlyvisible --class firefox | wc -l) ] ; then
         export STARTED=1
     fi
@@ -120,40 +125,40 @@ xdotool mousemove 1 20
 unclutter &
 EOF
 ##############################################################################
-chmod a+x /home/pi/bin/bec_slideshow.sh
+chmod a+x /home/$SUDO_USER/bin/bec_slideshow.sh
 
 
 ##############################################################################
-# Put the following file in /home/pi/.config/autostart/BEC Slideshow.desktop (a 'shortcut' icon)
+# Put the following file in /home/$SUDO_USER/.config/autostart/BEC Slideshow.desktop (a 'shortcut' icon)
 ##############################################################################
-sudo -u pi cat > "/home/pi/.config/autostart/BEC Slideshow.desktop" <<-EOF
+sudo -u $SUDO_USER cat > "/home/$SUDO_USER/.config/autostart/BEC Slideshow.desktop" <<-EOF
 [Desktop Entry]
 Encoding=UTF-8
 Name=BEC Slideshow
 Comment=Show Bristol Energy Cooperative PV generation data
 GenericName=BEC Slideshow
 X-GNOME-FullName=BEC Slideshow
-Exec=/home/pi/bin/bec_slideshow.sh
+Exec=/home/$SUDO_USER/bin/bec_slideshow.sh
 Terminal=false
 X-MultipleArgs=false
 Type=Application
-Icon=iceweasel
+Icon=firefox
 Categories=Network;WebBrowser;
 MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/vnd.mozilla.xul+xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;
-StartupWMClass=Iceweasel
+StartupWMClass=Firefox
 StartupNotify=true
 EOF
 ##############################################################################
 
 # Create a link on the desktop too (removing any pre-existing one)
-rm -f "/home/pi/Desktop/BEC Slideshow.desktop"
-sudo -u pi ln -s "/home/pi/.config/autostart/BEC Slideshow.desktop" "/home/pi/Desktop/BEC Slideshow.desktop"
+rm -f "/home/$SUDO_USER/Desktop/BEC Slideshow.desktop"
+sudo -u $SUDO_USER ln -s "/home/$SUDO_USER/.config/autostart/BEC Slideshow.desktop" "/home/$SUDO_USER/Desktop/BEC Slideshow.desktop"
 
 
 ##############################################################################
 # Install the update script
 ##############################################################################
-cat > "/home/pi/bin/bec_autoupdate.sh" <<-EOF
+cat > "/home/$SUDO_USER/bin/bec_autoupdate.sh" <<-EOF
 #!/bin/bash
 # Update script
 # - pull an update script from bec.sunrise.org.uk
@@ -169,31 +174,31 @@ echo
 echo "***** BEC auto-update starting `date` *****"
 
 # Extract shortcode from file
-export SHORTCODE=\`cat /home/pi/becshortcode\`
+export SHORTCODE=\`cat /home/$SUDO_USER/becshortcode\`
 
-# See which version we are currently - found in /home/pi/becversion
-if [ -f /home/pi/becversion ] ; then
-    export CURVER=\`cat /home/pi/becversion\`
+# See which version we are currently - found in /home/$SUDO_USER/becversion
+if [ -f /home/$SUDO_USER/becversion ] ; then
+    export CURVER=\`cat /home/$SUDO_USER/becversion\`
 else
     export CURVER=0
 fi
 
 # Download file if we can
-sudo wget --unlink -T 60 -O /home/pi/bin/update-\$SHORTCODE.sh http://bec.sunrise.org.uk/bec/updatescripts/update-\$SHORTCODE.sh
+sudo wget --unlink -T 60 -O /home/$SUDO_USER/bin/update-\$SHORTCODE.sh http://bec.sunrise.org.uk/bec/updatescripts/update-\$SHORTCODE.sh
 
 # If the version in the file is higher than our current version, run it
-export UPDATEVER=\`grep BEC_VERSION /home/pi/bin/update-\$SHORTCODE.sh | sed -e 's/.*BEC_VERSION *//'\`
+export UPDATEVER=\`grep BEC_VERSION /home/$SUDO_USER/bin/update-\$SHORTCODE.sh | sed -e 's/.*BEC_VERSION *//'\`
 
 if [ \$UPDATEVER -gt \$CURVER ]; then
     echo Detected newer version - performing update...
-    sudo chmod a+x /home/pi/bin/update-\$SHORTCODE.sh
-    sudo /home/pi/bin/update-\$SHORTCODE.sh
+    sudo chmod a+x /home/$SUDO_USER/bin/update-\$SHORTCODE.sh
+    sudo /home/$SUDO_USER/bin/update-\$SHORTCODE.sh
 else
     echo No update found
 fi
 EOF
 ##############################################################################
-chmod a+x /home/pi/bin/bec_autoupdate.sh
+chmod a+x /home/$SUDO_USER/bin/bec_autoupdate.sh
 
 
 ##############################################################################
@@ -201,7 +206,7 @@ chmod a+x /home/pi/bin/bec_autoupdate.sh
 # the morning.
 # We also regularly run our autoupdate.sh script.
 ##############################################################################
-cat > /home/pi/crontab.txt <<-EOF
+cat > /home/$SUDO_USER/crontab.txt <<-EOF
 # Format: <minute> <hour> <day-of-month> <month> <day-of-week> <command>
 # Ranges and comma-separated lists are allowed
 
@@ -212,13 +217,13 @@ cat > /home/pi/crontab.txt <<-EOF
 00 09 * * * sudo reboot
 
 # Run auto-update script hourly at 12 minutes past the hour
-12 * * * * /home/pi/bin/bec_autoupdate.sh 2>&1 | tee -a ~/cron_autoupdate.log
+12 * * * * /home/$SUDO_USER/bin/bec_autoupdate.sh 2>&1 | tee -a ~/cron_autoupdate.log
 # Archive old autoupdate log if it's over 32KB
 10 * * * * if [ \`du -k -c ~/cron_autoupdate.log |grep total | sed -e 's/ *total//'\` -gt 32 ] ; then rm ~/cron_autoupdate.log.1 ; mv ~/cron_autoupdate.log ~/cron_autoupdate.log.1; fi
 
 EOF
 ##############################################################################
-crontab -u pi /home/pi/crontab.txt
+crontab -u $SUDO_USER /home/$SUDO_USER/crontab.txt
 
 
 # All done - reboot!
