@@ -218,8 +218,8 @@ var slides = document.getElementsByClassName("mySlides");
 //  - Call our cycling slideshow functions to cycle through the slides
 window.onload = function()
 {
-    // Pause for 1 second and load the next slide in the background
-    setTimeout(backgroundLoader, 1000);
+    // Pause for 5 seconds and load the next slide in the background
+    setTimeout(backgroundLoader, 5000);
     // Start the slide-show
     setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);
 
@@ -245,8 +245,8 @@ function backgroundLoader()
 {
     if (loadIndex < slides.length)
     {
-        // Queue up the loading of the next slide a second after this one is loaded
-        slides[loadIndex].childNodes[1].onload = setTimeout(backgroundLoader, 1000);
+        // Queue up the loading of the next slide 5 seconds after this one is loaded
+        slides[loadIndex].childNodes[1].onload = setTimeout(backgroundLoader, 5000);
 
         // Trigger the loading of this slide
         slides[loadIndex].childNodes[1].src = slides[loadIndex].childNodes[1].attributes['data-url'].value;
@@ -276,7 +276,7 @@ function showSlide()
     }
     // Show the new current slide
     slides[slideIndex].className = "mySlides visible";
-    // Call again after the display period has elapsed
+    // Hide it again after the display period has elapsed
     setTimeout(hideSlide, slides[slideIndex].childNodes[1].attributes['data-timeout'].value);
 }
 
