@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <HTML>
 <HEAD>
 <TITLE>Bristol Energy Cooperative - Twitter Feed</TITLE>
@@ -5,6 +6,16 @@
 <BODY style="background-color:white"> <!-- Within the BODY tag, this shows a Twitter logo in background: style="background-image:url(twitter_logo.png); background-repeat:no-repeat; background-position:center top" -->
 
 <div style="height:98%; width:95%; border:5px solid; margin:auto; display:flex; flex-flow:row nowrap; justify-content:space-between">
+
+<style>
+<!-- Force the Twitter feed to fit in it's DIV like it used to -->
+div.twitter-timeline.twitter-timeline-rendered {
+  height: 100%;
+}
+iframe#twitter-widget-0 {
+  height: 100% !important;
+}
+</style>
 
 <!-- Left column  -->
 <div style="width:750px; font-size:4vh; margin:15px">
@@ -25,8 +36,8 @@ to save on electricity bills and reduce its impact on the environment!
 
 <!--  Right column - Twitter feed -->
 <div style="opacity:0.8; width:100%">
-<a class="twitter-timeline" data-height="100%" href="https://twitter.com/briznrg" data-chrome="noscrollbar nofooter">Tweets by Bristol Energy Cooperative</a>
-<script async src="//platform.twitter.com/widgets.js" charset="utf-8"></script>
+<a class="twitter-timeline" href="https://twitter.com/briznrg" data-chrome="noscrollbar nofooter">Tweets by Bristol Energy Cooperative</a>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 </div>
 
 </div>
